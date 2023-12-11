@@ -31,7 +31,7 @@
 
       <template x-if="!loggedon">
         <div>
-          <form x-cloak @submit.prevent="doLogin($el, $data)" x-show="!loggedon">
+          <form x-cloak @submit.prevent="doLogin($el, $data)">
             <label for="user">Username:</label>
             <input type="text" id="user" name="user" required>
 
