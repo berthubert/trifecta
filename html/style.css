@@ -1,0 +1,33 @@
+tr:nth-of-type(even) {
+    background-color:#eee;
+}
+body {
+    font-family: Open Sans, Roboto, sans-serif;
+    color: #000;
+}
+table {
+    font-size: 90%;
+}
+
+td.discrepant {
+    color: #fff;
+    background-color: #ff0000;
+}
+
+td.sum {
+    color: #00f;
+}
+
+.watermark{
+color:yellow;
+background-color:rgba(255, 0, 0, 0.5);
+height:60px;
+width:150px;
+display:flex;
+align-items:center;
+justify-content:center;
+position:fixed;
+top: 5px;
+right:5px;
+}
+
