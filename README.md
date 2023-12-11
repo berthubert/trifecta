@@ -3,10 +3,16 @@ A simple image shring site, built with a combination of modern c++, database
 and web technologies
 
 # Building
-Requires meson and g++. 
+Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
+systems the following works:
 
-To get meson, you can try 'pip install meson' or perhaps 'pip3
-install meson' or if that doesn't work 'apt install meson'.
+```
+apt-get install libsqlite3-dev nlohmann-json3-dev python3-pip libcrypto++-dev
+```
+
+In addition, the project requiers a recent version of meson, which you can
+get with 'pip3 install meson ninja' or perhaps 'pip install
+meson ninja' and only if that doesn't work 'apt install meson'.
 
 Then run:
 
