@@ -7,7 +7,7 @@ Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
 systems the following works:
 
 ```
-apt install meson libsqlite3-dev nlohmann-json3-dev python3-pip libcrypto++-dev sqlite3 libsqlite3-dev pkg-config
+apt install libsqlite3-dev nlohmann-json3-dev python3-pip libcrypto++-dev pkg-config
 ```
 
 In addition, the project requiers a recent version of meson, which you can
