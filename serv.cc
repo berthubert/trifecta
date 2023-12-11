@@ -65,7 +65,7 @@ struct Users
   Users(LockedSqw& lsqw) : d_lsqw(lsqw)
   {}
   bool checkPassword(const std::string& user, const std::string& password) const;
-  void createUser(const std::string& user, const std::string& password, bool admin);
+  void createUser(const std::string& user, const std::string& password, const std::string& email, bool admin);
   set<string> getCaps(const std::string& user) const;
   bool userHasCap(const std::string& user, const std::string& cap)
   {
@@ -85,16 +85,12 @@ bool Users::checkPassword(const std::string& user, const std::string& password) 
   return bcrypt::validatePassword(password, get<string>(res[0]["pwhash"]));
 }
 
-void Users::createUser(const std::string& user, const std::string& password, bool admin)
+void Users::createUser(const std::string& user, const std::string& password, const std::string& email, bool admin)
 {
   string pwhash = bcrypt::generateHash(password);
   cout<<"Going to add user '"<<user<<"'"<<endl;
-  d_lsqw.addValue({{"useruser", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}}, "users");
+  d_lsqw.addValue({{"useruser", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
 }
-
-
-
-
 
 class Sessions
 {
@@ -217,6 +213,7 @@ int main(int argc, char**argv)
     } catch (...) { // See the following NOTE
       reason = "An unknown error occurred";
     }
+    cout<<"500 created for: "<<reason<<endl;
     string html = fmt::format("<html><body><h1>Error</h1>{}</body></html>", reason);
     res.set_content(html, "text/html");
     res.status = 500;
@@ -228,9 +225,9 @@ int main(int argc, char**argv)
   Users u(lsqw);
   try
   {
-    u.createUser("ahu", "12secret34", false);
-    u.createUser("elders", "12secret34", false);
-    u.createUser("admin", "adminadmin", true);
+    u.createUser("ahu", "12secret34", "bert@hubertnet.nl", false);
+    u.createUser("elders", "12secret34", "bert.hubert@gmail.com", false);
+    u.createUser("admin", "adminadmin", "bert@hubertnet.nl", true);
   }
   catch(std::exception &e){
     cerr<<"Error creating user: "<<e.what()<<endl;
@@ -253,11 +250,13 @@ int main(int argc, char**argv)
     j["ok"]=0;
     if(u.checkPassword(user, password)) { 
       string sessionid = sessions.createSessionForUser(user);
-      res.set_header("Set-Cookie", "session="+sessionid+"; SameSite=Strict; Path=/");
+      res.set_header("Set-Cookie",
+                     "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
       cout<<"Logged in user "<<user<<endl;
       j["ok"]=1;
       j["message"]="welcome!";
       lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
+      lsqw.query("update users set lastLoginTstamp=? where useruser=?", {time(0), user});
               
     }
     else {
@@ -269,6 +268,16 @@ int main(int argc, char**argv)
   });
 
 
+  svr.Get("/join-session/:sessionid", [&lsqw, a](const auto& req, auto& res) {
+    string sessionid = req.path_params.at("sessionid");
+    
+    res.set_header("Set-Cookie",
+                   "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+    res.set_header("Location", "../");
+    res.status = 303;
+    
+  });
+  
   svr.Get("/i/:imgid", [&lsqw, a](const auto& req, auto& res) {
     string imgid = req.path_params.at("imgid");
     string user;
@@ -290,7 +299,14 @@ int main(int argc, char**argv)
 
   svr.Get("/status", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
     nlohmann::json j;
-    string user = a.getUser(req);
+    string user;
+    try {
+      user = a.getUser(req);
+    }
+    catch(exception& e) {
+      cout<<"On /status, could not find a session"<<endl;
+    }
+      
     j["login"] = !user.empty();
     if(!user.empty())
       j["user"] = user;
@@ -350,14 +366,18 @@ int main(int argc, char**argv)
     svr.Get("/can_touch_image/:imgid", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       nlohmann::json j;
       string imgid = req.path_params.at("imgid");
-      cout<<"can_touch_image called for "<<imgid<<endl;
+
       j["can_touch_image"]=0;
-      if(a.check(req)) {
-        string user = a.getUser(req);
-        auto sqres = lsqw.query("select count(1) as c from images where id=? and user=?", {imgid, user});
-        if(get<int64_t>(sqres[0]["c"]))
-          j["can_touch_image"]=1;
+      
+      try {
+        if(a.check(req)) {
+          string user = a.getUser(req);
+          auto sqres = lsqw.query("select count(1) as c from images where id=? and user=?", {imgid, user});
+          if(get<int64_t>(sqres[0]["c"]))
+            j["can_touch_image"]=1;
+        }
       }
+      catch(exception&e) { cout<<"No session for checking access rights: "<<e.what()<<"\n";}
       // now check if user is admin, and then also set to 1 XXX
       res.set_content(j.dump(), "application/json");
     });
@@ -375,6 +395,9 @@ int main(int argc, char**argv)
       if(a.check(req)) {
         lsqw.addValue({{"action", "logout"}, {"user", a.getUser(req)}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
         a.dropSession(req);
+        res.set_header("Set-Cookie",
+                       "session="+a.getSessionID(req)+"; SameSite=Strict; Path=/; Max-Age=0");
+
       }
     });
     
