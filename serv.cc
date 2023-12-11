@@ -15,13 +15,10 @@ using namespace std;
 
 /*
 Todo:
-  Store sessions in the database
   Enable password reset
-  Enable thumbnails
-
+  Enable _actual_ thumbnails
   expiry
   UI
-
 */
       
 struct LockedSqw
@@ -50,7 +47,6 @@ struct LockedSqw
     sqw.addValue(values, table);
   }
 };
-
 
 static int64_t getRandom63()
 {
@@ -267,7 +263,6 @@ int main(int argc, char**argv)
     res.set_content(j.dump(), "application/json");
   });
 
-
   svr.Get("/join-session/:sessionid", [&lsqw, a](const auto& req, auto& res) {
     string sessionid = req.path_params.at("sessionid");
     
@@ -409,11 +404,9 @@ int main(int argc, char**argv)
         }
         lsqw.queryJ(res, "select id, user,timestamp,content_type,length(image) as size, public,ip from images", {});
       });
-      
     }
   }
   
   cout<<"Will listen on http://127.0.0.1:"<<args.get<int>("port")<<endl;
-  
   svr.listen("0.0.0.0", args.get<int>("port"));
 }
