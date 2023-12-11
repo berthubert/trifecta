@@ -17,10 +17,11 @@
                  images: [],
                  can_touch_image: 0,
                  get canDelImage() { return( this.loggedon && this.imageid != '');},
-                 get canShowImage() { return( this.imageid != '');} 
+                 get canShowImage() { return( this.imageid != '');},
+                 get showPasteImage() { return ( this.loggedon && !this.imageid != '');} 
 }" x-init="getLoginStatus($data);getMyImageList($data);" @paste.window="getImage($data, $event)">
     <header>
-      <h1>Trifecta</h1>
+      <h1><a href="/">Trifecta</a></h1>
 
       <template x-if="loggedon">
         <div>
@@ -44,18 +45,17 @@
       </template>
     </header>
 
-    <div id="paste">
-      <button @click="doDeleteImage($data, imageid)" x-show="can_touch_image">Delete image</button>
-      <br />
+    <div id="image" x-show="loggedon">
       <div x-show="canShowImage">
-        <img style="max-width: 100%" x-cloak x-bind:src="'i/'+imageid">
+        <img x-cloak x-bind:src="'i/'+imageid">
         <p contenteditable="true">...</p>
+      </div>
+      <button @click="doDeleteImage($data, imageid)" x-show="can_touch_image">Delete image</button>
+    </div>
 
-      </div>
-      <div x-show="loggedon">
-        <h2>Paste your image here</h2>
-        <p>Simply paste your picture into this page...</p>
-      </div>
+    <div id="paste" x-show="showPasteImage">
+      <h2>Paste your image here</h2>
+      <p>Simply paste your picture into this page...</p>
     </div>
 
 
@@ -79,9 +79,11 @@
               <td x-text="g.id"></td>
               <td x-text="g.type"></td>
               <td x-text="g.size"></td>
-              <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public" /></td>
+              <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public" />
+              </td>
               <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()"></td>
-              <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
+              <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+              </td>
               <td><a href='#' @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">
                   <!-- https://feathericons.dev/?search=trash2&iconset=feather -->
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"

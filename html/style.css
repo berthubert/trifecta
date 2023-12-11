@@ -58,6 +58,7 @@ div#container {
     display: grid;
     grid-template-areas:
        "header"
+       "image"
        "paste"
        "imagelist";
 }
@@ -72,11 +73,31 @@ div#container {
     padding: var(--size-xs);
 }
 
+#image {
+    grid-area: image;
+    padding: var(--size-xs);
+    width: 95%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#image > div > img {
+    border: 1px solid;
+    border-color: var(--color-gray-400);
+    max-width: 100%;
+    display: block;
+    margin: auto;
+
+}
 
 h2:nth-child(1) {
     padding-top: 1em;
 }
 
+h1 > a {
+    text-decoration: none;
+    color: var(--clr-header-text);
+}
 
 header {
     grid-area: header;
