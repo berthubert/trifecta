@@ -66,8 +66,14 @@ struct Users
   bool userHasCap(const std::string& user, const std::string& cap)
   {
     bool ret=false;
-    if(cap=="logged-in")
-      ret = true;
+    if(cap=="valid-user") {
+      auto c = d_lsqw.query("select count(1) as c from users where useruser=? and disabled=0", {user});
+      ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
+    }
+    else if(cap=="admin") {
+      auto c = d_lsqw.query("select count(1) as c from users where useruser=? and disabled=0 and admin=1", {user});
+      ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
+    }
     return ret;
   }
   LockedSqw& d_lsqw;
@@ -177,13 +183,13 @@ struct AuthSentinel
 };
 
 
-
-
 int main(int argc, char**argv)
 {
   argparse::ArgumentParser args("serv");
 
   args.add_argument("db-file").help("file to read database from").default_value("trifecta.sqlite");
+  args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
+  args.add_argument("--admin-password").help("If set, create admin user with this password");
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
   
   try {
@@ -197,7 +203,13 @@ int main(int argc, char**argv)
 
   SQLiteWriter sqw(args.get<string>("db-file"), {{"useruser", "UNIQUE"}});
   std::mutex sqwlock;
-
+  LockedSqw lsqw{sqw, sqwlock};
+  Users u(lsqw);
+  
+  if(auto fn = args.present("--admin-password")) {
+    u.createUser("admin", *fn, "", true);
+  }
+  
   httplib::Server svr;
   
   svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
@@ -215,19 +227,7 @@ int main(int argc, char**argv)
     res.status = 500;
   });
   
-  svr.set_mount_point("/", "./html/");
-
-  LockedSqw lsqw{sqw, sqwlock};
-  Users u(lsqw);
-  try
-  {
-    u.createUser("ahu", "12secret34", "bert@hubertnet.nl", false);
-    u.createUser("elders", "12secret34", "bert.hubert@gmail.com", false);
-    u.createUser("admin", "adminadmin", "bert@hubertnet.nl", true);
-  }
-  catch(std::exception &e){
-    cerr<<"Error creating user: "<<e.what()<<endl;
-  }
+  svr.set_mount_point("/", args.get<string>("html-dir"));
   
   Sessions sessions(lsqw);
   AuthReqs a(sessions, u);
@@ -276,20 +276,30 @@ int main(int argc, char**argv)
   svr.Get("/i/:imgid", [&lsqw, a](const auto& req, auto& res) {
     string imgid = req.path_params.at("imgid");
     string user;
+    res.status = 404;
+    
     try {
       user = a.getUser(req);
     }catch(...){}
     
-    auto results = lsqw.query("select image from images where id=? and (public=1 or user=?) ", {imgid, user});
+    auto results = lsqw.query("select image,publicUntilTstamp,user from images where id=? and (public=1 or user=?) ", {imgid, user});
 
-    if(results.size() == 1) {
-      auto img = get<vector<uint8_t>>(results[0]["image"]);
-      string s((char*)&img[0], img.size());
-      res.set_content(s, "image/png");
+    if(results.size() != 1) {
+      return;
     }
-    else
-      res.status = 404;
+
+    // if not owned by user, need to check publicUntilTstamp
+    if(get<string>(results[0]["user"]) != user) {
+      if(auto ptr = get_if<int64_t>(&results[0]["publicUntilTstamp"]) ) {
+        if(*ptr && *ptr < time(0))
+          return;
+      }
+    }
     
+    auto img = get<vector<uint8_t>>(results[0]["image"]);
+    string s((char*)&img[0], img.size());
+    res.set_content(s, "image/png");
+    res.status = 200;
   });
 
   svr.Get("/status", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
@@ -311,7 +321,7 @@ int main(int argc, char**argv)
   
 
   {
-    AuthSentinel as(a, "logged-in");
+    AuthSentinel as(a, "valid-user");
 
     svr.Post("/upload", [&lsqw, a](const auto& req, auto& res) {
       if(!a.check(req))
@@ -321,10 +331,15 @@ int main(int argc, char**argv)
         fmt::print("name {}, filename {}, content_type {}, size {}\n", f.name, f.filename, f.content_type, f.content.size());
         vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
         auto imgid=makeShortID(getRandom63());
-        lsqw.addValue({{"id", imgid}, {"public", 1}, {"ip", req.remote_addr}, {"user", a.getUser(req)}, {"timestamp", tstamp}, {"image", content}, {"content_type", f.content_type}}, "images");
+        lsqw.addValue({{"id", imgid}, {"public", 1},
+                       {"ip", req.remote_addr},
+                       {"user", a.getUser(req)},
+                       {"timestamp", tstamp},
+                       {"image", content},
+                       {"content_type", f.content_type},
+                       {"publicUntilTstamp", 0}}, "images");
         nlohmann::json j;
         j["id"]=imgid;
-        cout<<"imgid: "<<imgid<<endl;
         res.set_content(j.dump(), "application/json");
         lsqw.addValue({{"action", "upload"} , {"image_id", imgid}, {"tstamp", tstamp}}, "log");
         break;
@@ -382,9 +397,8 @@ int main(int argc, char**argv)
       if(!a.check(req)) {
         throw std::runtime_error("Not admin");
       }
-      lsqw.queryJ(res, "select id, timestamp,content_type,length(image) as size, public from images where user=?", {a.getUser(req)});
-    });
-    
+      lsqw.queryJ(res, "select id, timestamp,content_type,length(image) as size, public, publicUntilTstamp from images where user=?", {a.getUser(req)});
+    });  
 
     svr.Post("/logout", [&lsqw, a](const httplib::Request &req, httplib::Response &res) mutable {
       if(a.check(req)) {
