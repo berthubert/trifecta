@@ -4,6 +4,7 @@ function getLoginStatus(f)
 {
     const result = fetch('status').then(response => response.json()).then(data => {
         if(data.login) {
+            f.user = data.user;
             f.login = "Logged in as user "+data.user;
             f.loggedon = true;
         }
