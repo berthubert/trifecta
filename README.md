@@ -5,6 +5,7 @@ and web technologies
 # Goals
 
  * Provide an easy on-ramp for "C++ people" to using modern web technology
+   * Using a non-bloated minimal framework (alpine.js)
  * Showcase modern C++ and build tools (Meson)
    * A Rust version of the backend is very welcome!
  * Show how you can build things without 200 dependencies
@@ -36,7 +37,24 @@ Then run:
 ```
 meson setup build
 meson compile -C build
-./build/serv
+./build/serv --admin-password=thinkofsomething
 ```
 
-And you should be in business.
+And you should be in business. It prints out the URL on which you can
+contact the service. To take this into production using nginx (for
+letsencrypt, TLS etc), try:
+
+```
+upstream backendtrifect {
+    server 10.0.0.12:3456 fail_timeout=5s max_fails=3;
+}
+
+...
+
+location /trifecta/ {
+	rewrite    /trifecta/(.*) /$1 break;
+	proxy_pass http://backendtrifect;
+	add_header X-Cache-Status $upstream_cache_status;
+}
+
+```
