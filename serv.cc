@@ -221,7 +221,7 @@ int main(int argc, char**argv)
     } catch (...) { // See the following NOTE
       reason = "An unknown error occurred";
     }
-    cout<<req.path<<": " 500 created for "<<reason<<endl;
+    cout<<req.path<<": 500 created for "<<reason<<endl;
     string html = fmt::format("<html><body><h1>Error</h1>{}</body></html>", reason);
     res.set_content(html, "text/html");
     res.status = 500;
