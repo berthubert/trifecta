@@ -418,7 +418,19 @@ int main(int argc, char**argv)
         }
         lsqw.queryJ(res, "select id, user,timestamp,content_type,length(image) as size, public,ip from images", {});
       });
+
+      svr.Post("/create-user", [&lsqw, &sessions, &u](const httplib::Request &req, httplib::Response &res) {
+        auto fields=getFormFields(req.body);
+        for(const auto& f : fields) {
+          fmt::print("'{}'\t'{}'\n", f.first, f.second);
+        }
+        
+      });
+      
     }
+
+
+    
   }
   
   cout<<"Will listen on http://127.0.0.1:"<<args.get<int>("port")<<endl;

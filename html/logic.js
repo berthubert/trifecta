@@ -91,6 +91,18 @@ function doChangePublic(f, imageid, el)
     });
 }
 
+function processCaptionKey(f, el, e)
+{
+    if(el.textContent == "...type a caption...") {
+        console.log(el);
+        el.style.color="#000000";
+        el.textContent="";
+    }
+    if(e.code=="Enter" && e.ctrlKey==true) {
+        console.log("Should submit now");
+    }
+}
+
 function getImage(f, e)
 {
     e.preventDefault();

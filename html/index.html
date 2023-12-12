@@ -48,7 +48,7 @@
     <div id="image" x-show="loggedon">
       <div x-show="canShowImage">
         <img x-cloak x-bind:src="'i/'+imageid">
-        <p contenteditable="true">...</p>
+        <p contenteditable="true" @keydown="processCaptionKey($data, $el, $event)" style="color: #cccccc;">...type a caption...</p>
       </div>
       <button @click="doDeleteImage($data, imageid)" x-show="can_touch_image">Delete image</button>
     </div>

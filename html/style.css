@@ -137,33 +137,9 @@ tr:nth-of-type(even) {
     background-color: #eee;
 }
 
-
-td.discrepant {
-    color: #fff;
-    background-color: #ff0000;
-}
-
-td.sum {
-    color: #00f;
-}
-
 .thumb {
     max-width: 150px;
 }
-
-.watermark {
-    color: yellow;
-    background-color: rgba(255, 0, 0, 0.5);
-    height: 60px;
-    width: 150px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    top: 5px;
-    right: 5px;
-}
-
 
 button {
     border-radius: var(--rad-small);
@@ -172,8 +148,9 @@ button {
     padding: var(--size-xxs) var(--size-xs);
     box-shadow: none;
     border: 0;
- }
- button:hover {
+}
+
+button:hover {
     cursor: pointer;
     background-color: var(--clr-btn-surface-hover);
- }
+}
