@@ -1,33 +1,48 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <script defer src="logic.js"></script>
-    <script defer src="cdn.min.js"></script>
-  </head>
-  <body>
-    <div x-data="{ login: '', 
+
+<head>
+  <meta charset="utf-8">
+
+  <link rel='stylesheet' href='style.css'>
+  <script defer src="logic.js"></script>
+  <script defer src="cdn.min.js"></script>
+</head>
+
+<body>
+  <div x-data="{ login: '', 
                  user: '', 
                  loggedon: false, 
                  images: []
-}"
-         x-init="getLoginStatus($data)"
-         @paste.window="getImage($data, $event)">
-      <div style="float: right;">
-        <table style="text-align: right;"><tr><td x-html="login"></td>
-            <td><button x-cloak x-show="loggedon" @click="doLogout($data)">Logout</button></td>
-            <td><form x-cloak @submit.prevent="doLogin($el, $data)" x-show="!loggedon">
-          <label for="user">Username:</label>
-          <input type="text" id="user" name="user" required>
-          
-          <label for="password">Password:</label>
-          <input type="password" id="password" name="password" required>
-          
-          <button type="submit">Login</button>
-        </form></td></tr></table>
-      </div>
-      <p x-show="!loggedon">&nbsp;</p>
-      <button @click="getImageList($data)">List</button>
+}" x-init="getLoginStatus($data);getImageList($data);" @paste.window="getImage($data, $event)">
+    <header>
+      <h1><a href="/">Trifecta</a> - admin</h1>
+
+      <template x-if="loggedon">
+        <div>
+          <span>Logged in as </span><span x-text="user"></span>
+          <button @click="doLogout($data)">Logout</button>
+        </div>
+      </template>
+
+      <template x-if="!loggedon">
+        <div>
+          <form x-cloak @submit.prevent="doLogin($el, $data)">
+            <label for="user">Username:</label>
+            <input type="text" id="user" name="user" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Login</button>
+          </form>
+        </div>
+      </template>
+    </header>
+
+
+    <div id="imagelist">
+      <h2>All images</h2>
       <table>
         <tr>
           <th>ID</th>
@@ -45,12 +60,14 @@
             <td x-text="g.ip"></td>
             <td x-text="g.type"></td>
             <td x-text="g.size"></td>
-            <td><input type="checkbox" x-bind:checked="g.public"/></td>
-            <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" style="max-width: 150px;" x-bind:src="'i/'+g.id"></a></td>
+            <td><input type="checkbox" x-bind:checked="g.public" /></td>
+            <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
           </tr>
         </template>
       </table>
-
+      <button @click="getImageList($data)">Refresh</button>
     </div>
+  </div>
 </body>
+
 </html>

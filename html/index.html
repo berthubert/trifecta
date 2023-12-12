@@ -1,48 +1,67 @@
 <!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <link rel='stylesheet' href='style.css'>
-    <script defer src="logic.js"></script>
-    <script defer src="cdn.min.js"></script>
-  </head>
-  <body>
-    <div x-data="{ login: '', 
+
+<head>
+  <title>Trifecta</title>
+  <meta charset="utf-8">
+  <link rel='stylesheet' href='style.css'>
+  <script defer src="logic.js"></script>
+  <script defer src="cdn.min.js"></script>
+</head>
+
+<body>
+  <div id="container" x-data="{ login: '', 
                  user: '', 
                  loggedon: false, 
                  imageid: '',
                  images: [],
                  can_touch_image: 0,
                  get canDelImage() { return( this.loggedon && this.imageid != '');},
-                 get canShowImage() { return( this.imageid != '');} 
-}"
-         x-init="getLoginStatus($data)"
-         @paste.window="getImage($data, $event)">
-      <div style="float: right;">
-        <table style="text-align: right;"><tr><td x-html="login"></td>
-            <td><button x-cloak x-show="loggedon" @click="doLogout($data)">Logout</button></td>
-            <td><form x-cloak @submit.prevent="doLogin($el, $data)" x-show="!loggedon">
-          <label for="user">Username:</label>
-          <input type="text" id="user" name="user" required>
-          
-          <label for="password">Password:</label>
-          <input type="password" id="password" name="password" required>
-          
-          <button type="submit">Login</button>
-        </form></td></tr></table>
-      </div>
-      <p x-show="!loggedon">&nbsp;</p>
+                 get canShowImage() { return( this.imageid != '');},
+                 get showPasteImage() { return ( this.loggedon && !this.imageid != '');} 
+}" x-init="getLoginStatus($data);getMyImageList($data);" @paste.window="getImage($data, $event)">
+    <header>
+      <h1><a href="/">Trifecta</a></h1>
 
-      <button @click="doDeleteImage($data, imageid)" x-show="can_touch_image">Delete image</button>
-      <br/>
+      <template x-if="loggedon">
+        <div>
+          <span>Logged in as </span><span x-text="user"></span>
+          <button @click="doLogout($data)">Logout</button>
+        </div>
+      </template>
+
+      <template x-if="!loggedon">
+        <div>
+          <form x-cloak @submit.prevent="doLogin($el, $data)">
+            <label for="user">Username:</label>
+            <input type="text" id="user" name="user" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Login</button>
+          </form>
+        </div>
+      </template>
+    </header>
+
+    <div id="image" x-show="loggedon">
       <div x-show="canShowImage">
-        <img style="max-width: 100%" x-cloak x-bind:src="'i/'+imageid">
-         <p contenteditable="true">...</p>
-        
+        <img x-cloak x-bind:src="'i/'+imageid">
+        <p contenteditable="true">...</p>
       </div>
-      <h1 x-show="loggedon">Paste your image here</h1>
+      <button @click="doDeleteImage($data, imageid)" x-show="can_touch_image">Delete image</button>
+    </div>
+
+    <div id="paste" x-show="showPasteImage">
+      <h2>Paste your image here</h2>
+      <p>Simply paste your picture into this page...</p>
+    </div>
+
+
+    <div id="imagelist">
+      <h2>Your images</h2>
       <div x-show="loggedon">
-        <button @click="getMyImageList($data)">List</button>
         <table>
           <tr>
             <th>Timestamp</th>
@@ -60,14 +79,29 @@
               <td x-text="g.id"></td>
               <td x-text="g.type"></td>
               <td x-text="g.size"></td>
-              <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public"/></td>
-              <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()"></td>              
-              <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" style="max-width: 150px;" x-bind:src="'i/'+g.id"></a></td>
-              <td><a href='#' @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">x</td>
+              <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public" />
+              </td>
+              <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()"></td>
+              <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+              </td>
+              <td><a href='#' @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">
+                  <!-- https://feathericons.dev/?search=trash2&iconset=feather -->
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"
+                    class="main-grid-item-icon" fill="none" stroke="currentColor" stroke-linecap="round"
+                    stroke-linejoin="round" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="10" x2="10" y1="11" y2="17" />
+                    <line x1="14" x2="14" y1="11" y2="17" />
+                  </svg>
+              </td>
             </tr>
           </template>
         </table>
       </div>
+      <button @click="getMyImageList($data)">Refresh</button>
     </div>
+  </div>
 </body>
+
 </html>
