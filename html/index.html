@@ -10,7 +10,7 @@
 </head>
 
 <body>
-  <div id="container" x-data="{ login: '', 
+  <div id="container" x-data="{ loginmessage: '', 
                  user: '', 
                  loggedon: false, 
                  imageid: '',
@@ -29,6 +29,9 @@
           <button @click="doLogout($data)">Logout</button>
         </div>
       </template>
+        <div>
+          <span x-html="loginmessage"></span>
+        </div>
 
       <template x-if="!loggedon">
         <div>

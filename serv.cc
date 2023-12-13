@@ -15,10 +15,13 @@ using namespace std;
 
 /*
 Todo:
-  Enable password reset
+  Enable password reset email
+  sqlitewriter have metadata per table
+  check signal paste
+
+  Configuration items in database
   Enable _actual_ thumbnails
-  expiry
-  UI
+  expiry in UI
 */
       
 struct LockedSqw
@@ -218,7 +221,7 @@ int main(int argc, char**argv)
       std::rethrow_exception(ep);
     } catch (std::exception &e) {
       reason = fmt::format("An error occurred: {}", e.what());
-    } catch (...) { // See the following NOTE
+    } catch (...) { 
       reason = "An unknown error occurred";
     }
     cout<<req.path<<": 500 created for "<<reason<<endl;
@@ -393,7 +396,7 @@ int main(int argc, char**argv)
     });
 
     
-    svr.Get("/myimages", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+    svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       if(!a.check(req)) {
         throw std::runtime_error("Not admin");
       }
@@ -412,7 +415,7 @@ int main(int argc, char**argv)
     
     {
       AuthSentinel as(a, "admin");
-      svr.Get("/images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+      svr.Get("/all-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");
         }
@@ -424,13 +427,10 @@ int main(int argc, char**argv)
         for(const auto& f : fields) {
           fmt::print("'{}'\t'{}'\n", f.first, f.second);
         }
-        
+        // XXXX
       });
       
     }
-
-
-    
   }
   
   cout<<"Will listen on http://127.0.0.1:"<<args.get<int>("port")<<endl;

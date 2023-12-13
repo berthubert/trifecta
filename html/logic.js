@@ -40,14 +40,14 @@ function doLogout(f)
 
 function getImageList(f)
 {
-    fetch('images').then(response => response.json()).then(data => {
+    fetch('all-images').then(response => response.json()).then(data => {
         f.images = data;
     });
 }
 
 function getMyImageList(f)
 {
-    fetch('myimages').then(response => response.json()).then(data => {
+    fetch('my-images').then(response => response.json()).then(data => {
         f.images = data;
     });
 }
@@ -61,7 +61,7 @@ function doLogin(el, f)
         if(data.ok)
             getLoginStatus(f);
         else
-            f.login="<b>"+data.message+"</b>"; 
+            f.loginmessage="<b>"+data.message+"</b>"; 
     });
 }
 
