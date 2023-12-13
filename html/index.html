@@ -45,8 +45,8 @@
       </template>
     </header>
 
-    <div id="image" x-show="loggedon">
-      <div x-show="canShowImage">
+    <div id="image">
+      <div x-show="canShowImage"> 
         <img x-cloak x-bind:src="'i/'+imageid">
         <p contenteditable="true" @keydown="processCaptionKey($data, $el, $event)" style="color: #cccccc;">...type a caption...</p>
       </div>
@@ -59,9 +59,9 @@
     </div>
 
 
-    <div id="imagelist">
+    <div x-show="loggedon" id="imagelist">
       <h2>Your images</h2>
-      <div x-show="loggedon">
+      <div>
         <table>
           <tr>
             <th>Timestamp</th>
