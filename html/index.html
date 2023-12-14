@@ -89,7 +89,7 @@
             <tr>
               <td x-text="new Date(g.timestamp * 1000).toLocaleString()"></td>
               <td x-text="g.id"></td>
-              <td x-text="g.postId"></td>
+              <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
               <td x-text="g.content_type"></td>
               <td x-text="g.size"></td>
               <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public" />
