@@ -17,8 +17,26 @@ and web technologies
 Once done, in ~600 lines of C++, this gets you a safe and secure image sharing site
 that you could run yourself and forget about. 
 
-# Status
+# Status & Thanks
 Heavy development ongoing!
+
+Many thanks are also due to early users & contributors:
+
+ * Ruben d'Arco
+ * Roel van der Made
+
+# Description
+You can paste (but not yet drag!) images to trifecta. If you paste an image, a post will be created for it automatically. 
+
+A post can contain multiple images. Each image can have a caption, and each post a title. 
+
+Both images and posts can be public or not. 
+
+# Known problems
+
+ * You can only paste files right now, not drag and drop
+ * Public is not yet implemented for posts, only for images
+ * You can't yet create users online
 
 # Building
 Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
@@ -41,7 +59,10 @@ meson compile -C build
 ```
 
 And you should be in business. It prints out the URL on which you can
-contact the service. To take this into production using nginx (for
+contact the service. On first use you'll get some scary looking SQL errors,
+these go away once you've uploaded your first image.
+
+To take this into production using nginx (for
 letsencrypt, TLS etc), try:
 
 ```
