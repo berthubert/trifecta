@@ -10,20 +10,26 @@ function getLoginStatus(f)
         }
         else {
             f.login = "";
+            
             f.loggedon = false;
         }
     });
 
     result.then( r => {
         let a = new URL(window.location.href)
-        f.can_touch_image=0;
-        let i = a.searchParams.get("i");
-        if(i != null) {
-            f.imageid = i;
-            fetch('can_touch_image/'+f.imageid).then(response => {
+        f.can_touch_post=0;
+        let p = a.searchParams.get("p");
+        if(p != null) {
+            f.postId = p;
+            console.log("Set postid");
+            fetch('getPost/'+f.postId).then(response => response.json()).then(data => {
+                f.images = data.images;
+                f.postTitle = data.title;
+            });
+            fetch('can_touch_post/'+f.postId).then(response => {
                 if (response.ok) {
                     response.json().then(data => {
-                         f.can_touch_image = data.can_touch_image;
+                         f.can_touch_post = data.can_touch_post;
                     });
                 }
             });
@@ -48,18 +54,27 @@ function getImageList(f)
 function getMyImageList(f)
 {
     fetch('my-images').then(response => response.json()).then(data => {
-        f.images = data;
+        f.myimages = data;
     });
 }
 
+function doSetPostTitle(f, el)
+{
+    const formData = new FormData();
+    formData.append('title', el.innerText);
+    
+    fetch("set-post-title/"+f.postId, {method: "POST", body: formData});
+}
 
 function doLogin(el, f)
 {
     const data = new URLSearchParams(new FormData(el));
     fetch("login", {method: "POST", body: data})
     .then(response => response.json()).then(data => {
-        if(data.ok)
+        if(data.ok) {
+            f.loginmessage="";
             getLoginStatus(f);
+        }
         else
             f.loginmessage="<b>"+data.message+"</b>"; 
     });
@@ -70,11 +85,11 @@ function doDeleteImage(f, imageid)
     console.log("Attempting to delete "+imageid);
     return fetch("delete-image/" + imageid, {method: "POST"})
         .then(function(res){
-            f.imageid="";
-            f.can_touch_image=0;
-            const url = new URL(window.location.href);
-            url.searchParams.delete("i");
-            history.pushState({}, "", url);
+            if(res.ok) {
+                f.images = f.images.filter(function(item) {
+                    return item.id !== imageid;
+                })
+            }
         });
 }
 
@@ -91,27 +106,36 @@ function doChangePublic(f, imageid, el)
     });
 }
 
-function processCaptionKey(f, el, e)
+function processCaptionKey(f, el, e, imageid)
 {
     if(el.textContent == "...type a caption...") {
-        console.log(el);
         el.style.color="#000000";
         el.textContent="";
     }
     if(e.code=="Enter" && e.ctrlKey==true) {
-        console.log("Should submit now");
+        const formData = new FormData();
+        formData.append('caption', el.innerHTML);
+        
+        fetch("set-image-caption/"+ imageid, {method: "POST", body: formData});
     }
 }
 
-function getImage(f, e)
+// this uploads an image, possibly to an existing post. If there is no post yet, it receives
+// the post that was created for us
+function getImageFromPaste(f, e)
 {
     e.preventDefault();
-
+    if(!f.loggedon) {
+        f.loginmessage="<b>Can't paste images unless logged in!</b>";
+        return;
+    }
     for (const clipboardItem of e.clipboardData.files) {
         if (clipboardItem.type.startsWith('image/')) {
             const formData = new FormData();
+            if(f.postId != '')
+                formData.append('postId', f.postId);
             formData.append('file', clipboardItem, clipboardItem.name);
-            
+
             fetch("upload", {
                 method: 'POST',
                 body: formData
@@ -119,10 +143,11 @@ function getImage(f, e)
                 .then(response => {
                     if (response.ok) {
                         response.json().then(data => {
-                            f.imageid = data.id;
-                            f.can_touch_image=1;
+                            f.images.push({"id": data.id});
+                            f.postId = data.postId;
+                            f.can_touch_post=1;
                             const url = new URL(window.location.href);
-                            url.searchParams.set("i", data.id);
+                            url.searchParams.set("p", data.postId); 
                             history.pushState({}, "", url);
                         });
                     } else {

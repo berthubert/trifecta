@@ -17,13 +17,21 @@ using namespace std;
 Todo:
   Enable password reset email
   sqlitewriter have metadata per table
-  check signal paste
 
   Configuration items in database
   Enable _actual_ thumbnails
   expiry in UI
+
+  baseurl or javascript so the 'trifecta button' goes to the right place
+  commandline interface to *change* password for admin
 */
-      
+
+/* posts:
+   Every upload is part of a post, and we make one for you if needed
+   you then get a new page that allows you to add to *this* post
+*/
+
+// helper that makes sure only 1 thread uses the sqlitewriter at a time, plus some glue to emit answers as json
 struct LockedSqw
 {
   SQLiteWriter& sqw;
@@ -35,14 +43,10 @@ struct LockedSqw
   }
 
   void queryJ(httplib::Response &res, const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values) 
-    try
-      {
-        auto result = query(q, values);
-        res.set_content(packResultsJsonStr(result), "application/json");
-      }
-    catch(exception& e) {
-      cerr<<"Error: "<<e.what()<<endl;
-    }
+  {
+    auto result = query(q, values);
+    res.set_content(packResultsJsonStr(result), "application/json");
+  }
 
   void addValue(const std::initializer_list<std::pair<const char*, SQLiteWriter::var_t>>& values, const std::string& table="data")
   {
@@ -275,6 +279,19 @@ int main(int argc, char**argv)
     res.status = 303;
     
   });
+
+  svr.Get("/getPost/:postid", [&lsqw, a](const auto& req, auto& res) {
+    string postid = req.path_params.at("postid");
+    // think about visible here, and admin, and owner XXX
+    auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
+    nlohmann::json j;
+    j["images"]=packResultsJson(images);
+
+    auto title = lsqw.query("select title from posts where public=1 and id=?", {postid});
+    if(title.size()==1)
+      j["title"]=get<string>(title[0]["title"]);
+    res.set_content(j.dump(), "application/json");
+  });
   
   svr.Get("/i/:imgid", [&lsqw, a](const auto& req, auto& res) {
     string imgid = req.path_params.at("imgid");
@@ -330,8 +347,26 @@ int main(int argc, char**argv)
       if(!a.check(req))
         throw std::runtime_error("Can't upload if not logged in");
       time_t tstamp = time(0);
+      cout<<"Got "<<req.files.size()<<" files"<<endl;
+      string postId;
       for(auto&& [name, f] : req.files) {
-        fmt::print("name {}, filename {}, content_type {}, size {}\n", f.name, f.filename, f.content_type, f.content.size());
+        fmt::print("f name {}, filename {}, content_type {}, size {}\n", f.name, f.filename, f.content_type, f.content.size());
+        if(f.name=="postId") {
+          cout<<"Setting postId of new upload to "<<f.content<<endl;
+          postId = f.content;
+        }
+      }
+      if(postId.empty()) {
+        postId = makeShortID(getRandom63());
+        lsqw.addValue({{"id", postId}, {"user", a.getUser(req)}, {"timestamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
+      }
+      
+      for(auto&& [name, f] : req.files) {
+        fmt::print("name {}, filename {}, content_type {}, size {}, postid {}\n", f.name, f.filename, f.content_type, f.content.size(), postId);
+        if(f.content_type != "image/png" && f.filename.empty()) {
+          cout<<"Skipping non-PNG or non-file"<<endl;
+          continue;
+        }
         vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
         auto imgid=makeShortID(getRandom63());
         lsqw.addValue({{"id", imgid}, {"public", 1},
@@ -340,12 +375,14 @@ int main(int argc, char**argv)
                        {"timestamp", tstamp},
                        {"image", content},
                        {"content_type", f.content_type},
+                       {"postId", postId},
+                       {"caption", ""},
                        {"publicUntilTstamp", 0}}, "images");
         nlohmann::json j;
         j["id"]=imgid;
+        j["postId"] = postId;
         res.set_content(j.dump(), "application/json");
         lsqw.addValue({{"action", "upload"} , {"image_id", imgid}, {"tstamp", tstamp}}, "log");
-        break;
       }
       
     });
@@ -361,6 +398,39 @@ int main(int argc, char**argv)
       lsqw.addValue({{"action", "delete-image"}, {"user", user}, {"image_id", imgid}, {"tstamp", time(0)}}, "log");
     });
 
+    svr.Post("/set-post-title/(.+)", [&lsqw, a](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Can't set post title if not logged in");
+      string postid = req.matches[1];
+
+      string title;
+      for(auto&& [name, f] : req.files) {
+        if(name=="title")
+          title = f.content;
+      }
+      string user = a.getUser(req);
+      cout<<"Attemping to set title for post "<< postid<<" for user " << user <<" to " << title << endl;
+      lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
+      lsqw.addValue({{"action", "set-post-title"}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
+    });
+
+    svr.Post("/set-image-caption/(.+)", [&lsqw, a](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Can't set image caption if not logged in");
+      string imgid = req.matches[1];
+
+      string caption;
+      for(auto&& [name, f] : req.files) {
+        if(name=="caption")
+          caption = f.content;
+      }
+      string user = a.getUser(req);
+      cout<<"Attemping to set caption for image "<< imgid<<" for user " << user <<" to " << caption << endl;
+      lsqw.query("update images set caption=? where user=? and id=?", {caption, user, imgid});
+      lsqw.addValue({{"action", "set-image-caption"}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
+    });
+
+    
     svr.Post("/set-image-public/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
       cout<<"change image public called"<<endl;
 
@@ -376,18 +446,18 @@ int main(int argc, char**argv)
     });
 
     
-    svr.Get("/can_touch_image/:imgid", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+    svr.Get("/can_touch_post/:postid", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       nlohmann::json j;
-      string imgid = req.path_params.at("imgid");
+      string postid = req.path_params.at("postid");
 
-      j["can_touch_image"]=0;
+      j["can_touch_post"]=0;
       
       try {
         if(a.check(req)) {
           string user = a.getUser(req);
-          auto sqres = lsqw.query("select count(1) as c from images where id=? and user=?", {imgid, user});
+          auto sqres = lsqw.query("select count(1) as c from posts where id=? and user=?", {postid, user});
           if(get<int64_t>(sqres[0]["c"]))
-            j["can_touch_image"]=1;
+            j["can_touch_post"]=1;
         }
       }
       catch(exception&e) { cout<<"No session for checking access rights: "<<e.what()<<"\n";}
@@ -398,9 +468,9 @@ int main(int argc, char**argv)
     
     svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       if(!a.check(req)) {
-        throw std::runtime_error("Not admin");
+        throw std::runtime_error("Not logged-in");
       }
-      lsqw.queryJ(res, "select id, timestamp,content_type,length(image) as size, public, publicUntilTstamp from images where user=?", {a.getUser(req)});
+      lsqw.queryJ(res, "select id, postid, timestamp,content_type,length(image) as size, public, publicUntilTstamp from images where user=?", {a.getUser(req)});
     });  
 
     svr.Post("/logout", [&lsqw, a](const httplib::Request &req, httplib::Response &res) mutable {

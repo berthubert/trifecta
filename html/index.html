@@ -13,13 +13,16 @@
   <div id="container" x-data="{ loginmessage: '', 
                  user: '', 
                  loggedon: false, 
-                 imageid: '',
                  images: [],
-                 can_touch_image: 0,
-                 get canDelImage() { return( this.loggedon && this.imageid != '');},
-                 get canShowImage() { return( this.imageid != '');},
-                 get showPasteImage() { return ( this.loggedon && !this.imageid != '');} 
-}" x-init="getLoginStatus($data);getMyImageList($data);" @paste.window="getImage($data, $event)">
+                 myimages: [],
+                 postId: '',
+                 postTitle: '',
+                 images: [],
+                 can_touch_post: 0,
+                 get canDelImage() { return( this.loggedon && this.postid != '');},
+                 get canShowImage() { return( this.images.length > 0);},
+                 get showPasteImage() { return ( this.loggedon);} 
+}" x-init="getLoginStatus($data);getMyImageList($data);" @paste.window="getImageFromPaste($data, $event)">
     <header>
       <h1><a href="/">Trifecta</a></h1>
 
@@ -48,12 +51,17 @@
       </template>
     </header>
 
-    <div id="image">
-      <div x-show="canShowImage"> 
-        <img x-cloak x-bind:src="'i/'+imageid">
-        <p contenteditable="true" @keydown="processCaptionKey($data, $el, $event)" style="color: #cccccc;">...type a caption...</p>
+    <div id="post">
+      <h2 x-bind:contenteditable="can_touch_post ? true : false" x-text="postTitle" @keydown.enter.prevent="doSetPostTitle($data, $el)"></h2>
+      <div x-show="canShowImage">
+        <template x-for="g in images">
+          <div>
+            <img x-cloak x-bind:src="'i/'+g.id">
+            <p x-bind:contenteditable="can_touch_post ? true:false" @keydown="processCaptionKey($data, $el, $event, g.id)" x-html="if(g.caption=='') return '...type a caption...'; else return g.caption;" x-style="if(g.caption=='') return 'color: #cccccc;'; else return '';"></p>
+            <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
+          </div>
+        </template>
       </div>
-      <button @click="doDeleteImage($data, imageid)" x-show="can_touch_image">Delete image</button>
     </div>
 
     <div id="paste" x-show="showPasteImage">
@@ -69,6 +77,7 @@
           <tr>
             <th>Timestamp</th>
             <th>ID</th>
+            <th>Post</th>
             <th>Type</th>
             <th>Size</th>
             <th>Public</th>
@@ -76,11 +85,12 @@
             <th>Thumbnail</th>
             <th>Del</th>
           </tr>
-          <template x-for="g in images">
+          <template x-for="g in myimages">
             <tr>
               <td x-text="new Date(g.timestamp * 1000).toLocaleString()"></td>
               <td x-text="g.id"></td>
-              <td x-text="g.type"></td>
+              <td x-text="g.postId"></td>
+              <td x-text="g.content_type"></td>
               <td x-text="g.size"></td>
               <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public" />
               </td>

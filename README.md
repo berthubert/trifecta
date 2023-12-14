@@ -55,6 +55,18 @@ location /trifecta/ {
 	rewrite    /trifecta/(.*) /$1 break;
 	proxy_pass http://backendtrifect;
 	add_header X-Cache-Status $upstream_cache_status;
+
+        add_header X-Cache-Status $upstream_cache_status;
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "same-origin";
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;" always;
 }
 
 ```
+
+# Inspiration
+The SUSE past-o-o pastebin: https://github.com/openSUSE/paste-o-o

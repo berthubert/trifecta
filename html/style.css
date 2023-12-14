@@ -36,11 +36,10 @@
     --size-l: 1.5em;
     --size-xl: 2em;
     --size-xxl: 3em;
-
     --rad-small: 0.5em;
 }
 
-body,div,header, h1, h2 {
+body,div,header,h1 {
     margin: 0;
     padding: 0;
     border: 0;
@@ -50,6 +49,7 @@ body {
     font-family: Open Sans, Roboto, sans-serif;
     color: var(--clr-primary-fg);
 }
+
 div#container {
     display: grid;
     grid-template-areas:
@@ -83,7 +83,6 @@ div#container {
     max-width: 100%;
     display: block;
     margin: auto;
-
 }
 
 h2:nth-child(1) {
@@ -102,13 +101,11 @@ header {
     display: flex;
     flex-direction: row;
     padding: var(--size-xs);
-
 }
 
 header > div {
     margin-left: auto;
 }
-
 
 table {
     border: 1px solid var(--clr-primary-fg);
