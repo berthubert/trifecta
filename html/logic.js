@@ -72,11 +72,11 @@ function doLogin(el, f)
     fetch("login", {method: "POST", body: data})
     .then(response => response.json()).then(data => {
         if(data.ok) {
-            f.loginmessage="";
+            f.message2user="";
             getLoginStatus(f);
         }
         else
-            f.loginmessage="<b>"+data.message+"</b>"; 
+            f.loginmessage=data.message; 
     });
 }
 
@@ -126,7 +126,7 @@ function getImageFromPaste(f, e)
 {
     e.preventDefault();
     if(!f.loggedon) {
-        f.loginmessage="<b>Can't paste images unless logged in!</b>";
+        f.message2user="Please login to paste an image.";
         return;
     }
     for (const clipboardItem of e.clipboardData.files) {

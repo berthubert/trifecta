@@ -22,13 +22,14 @@
     --clr-primary-bg: #fff;
     --clr-table-header-bg: var(--color-primary-1);
     --clr-table-row-bg: var(--color-gray-200);
-    --clr-header-bg:  var(--color-primary-1);
+    --clr-table-row-even-bg: var(--color-gray-400);
+    --clr-header-bg: var(--color-primary-1);
     --clr-header-text: var(--color-primary-4);
 
     --clr-btn-surface: var(--color-gray-400);
     --clr-btn-surface-hover: var(--color-gray-500);
     --clr-btn-surface-text: var(--color-primary-4);
-    
+
     --size-xxs: 0.2em;
     --size-xs: 0.5em;
     --size-s: 0.8em;
@@ -39,7 +40,10 @@
     --rad-small: 0.5em;
 }
 
-body,div,header,h1 {
+body,
+div,
+header,
+h1 {
     margin: 0;
     padding: 0;
     border: 0;
@@ -53,31 +57,36 @@ body {
 div#container {
     display: grid;
     grid-template-areas:
-       "header"
-       "image"
-       "paste"
-       "imagelist";
+        "header"
+        "image"
+        "paste"
+        "imagelist";
+}
+
+div#content {
+    padding: var(--size-xs);
+}
+
+#userfeedback>span {
+    font-weight: bold;
 }
 
 #paste {
     grid-area: paste;
-    padding: var(--size-xs);
 }
 
 #imagelist {
     grid-area: imagelist;
-    padding: var(--size-xs);
 }
 
 #image {
     grid-area: image;
-    padding: var(--size-xs);
     width: 95%;
     margin-left: auto;
     margin-right: auto;
 }
 
-#image > div > img {
+#image>div>img {
     border: 1px solid;
     border-color: var(--color-gray-400);
     max-width: 100%;
@@ -89,7 +98,7 @@ h2:nth-child(1) {
     padding-top: 1em;
 }
 
-h1 > a {
+h1>a {
     text-decoration: none;
     color: var(--clr-header-text);
 }
@@ -103,7 +112,7 @@ header {
     padding: var(--size-xs);
 }
 
-header > div {
+header>div {
     margin-left: auto;
 }
 
@@ -112,7 +121,8 @@ table {
     border-collapse: collapse;
 }
 
-th, td {
+th,
+td {
     border: 1px solid var(--clr-primary-fg);
     padding: var(--size-xs);
 }
@@ -121,13 +131,13 @@ th {
     background-color: var(--clr-table-header-bg);
 }
 
-td {
+tr {
     background-color: var(--clr-table-row-bg);
 
 }
 
 tr:nth-of-type(even) {
-    background-color: #eee;
+    background-color: var(--clr-table-row-even-bg);
 }
 
 .thumb {
