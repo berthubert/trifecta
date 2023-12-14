@@ -32,9 +32,9 @@
           <button @click="doLogout($data)">Logout</button>
         </div>
       </template>
-        <div>
-          <span x-html="loginmessage"></span>
-        </div>
+      <div>
+        <span x-html="loginmessage"></span>
+      </div>
 
       <template x-if="!loggedon">
         <div>
@@ -52,12 +52,16 @@
     </header>
 
     <div id="post">
-      <h2 x-bind:contenteditable="can_touch_post ? true : false" x-text="postTitle" @keydown.enter.prevent="doSetPostTitle($data, $el)"></h2>
+      <h2 x-bind:contenteditable="can_touch_post ? true : false" x-text="postTitle"
+        @keydown.enter.prevent="doSetPostTitle($data, $el)"></h2>
       <div x-show="canShowImage">
         <template x-for="g in images">
           <div>
             <img x-cloak x-bind:src="'i/'+g.id">
-            <p x-bind:contenteditable="can_touch_post ? true:false" @keydown="processCaptionKey($data, $el, $event, g.id)" x-html="if(g.caption=='') return '...type a caption...'; else return g.caption;" x-style="if(g.caption=='') return 'color: #cccccc;'; else return '';"></p>
+            <p x-bind:contenteditable="can_touch_post ? true:false"
+              @keydown="processCaptionKey($data, $el, $event, g.id)"
+              x-html="if(g.caption=='') return '...type a caption...'; else return g.caption;"
+              x-style="if(g.caption=='') return 'color: #cccccc;'; else return '';"></p>
             <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
           </div>
         </template>
