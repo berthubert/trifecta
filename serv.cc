@@ -507,7 +507,7 @@ int main(int argc, char**argv)
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");
         }
-        lsqw.queryJ(res, "select id, user,timestamp,content_type,length(image) as size, public,ip from images", {});
+        lsqw.queryJ(res, "select id, postId, user,timestamp,content_type,length(image) as size, public,ip from images", {});
       });
 
       svr.Get("/all-users", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {

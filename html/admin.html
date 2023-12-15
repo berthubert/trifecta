@@ -117,6 +117,7 @@
       <table>
         <tr>
           <th>ID</th>
+          <th>Post</th>
           <th>User</th>
           <th>IP</th>
           <th>Type</th>
@@ -127,12 +128,13 @@
         <template x-for="g in images">
           <tr>
             <td x-text="g.id"></td>
+            <td><a x-bind:href="'./?p='+g.postId" x-text="g.postId"></a></td>            
             <td x-text="g.user"></td>
             <td x-text="g.ip"></td>
-            <td x-text="g.type"></td>
+            <td x-text="g.content_type"></td>
             <td x-text="g.size"></td>
             <td><input type="checkbox" x-bind:checked="g.public" /></td>
-            <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
+            <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
           </tr>
         </template>
       </table>
