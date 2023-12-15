@@ -101,7 +101,7 @@ void Users::createUser(const std::string& user, const std::string& password, con
   string pwhash = bcrypt::generateHash(password);
   cout<<"Going to add user '"<<user<<"'"<<endl;
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
-  lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
+  d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 
 }
 
