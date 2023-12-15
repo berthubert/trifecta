@@ -101,6 +101,8 @@ void Users::createUser(const std::string& user, const std::string& password, con
   string pwhash = bcrypt::generateHash(password);
   cout<<"Going to add user '"<<user<<"'"<<endl;
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
+  lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
+
 }
 
 class Sessions
@@ -109,20 +111,23 @@ public:
   Sessions(LockedSqw& lsqw) : d_lsqw(lsqw)
   {}
 
-  string getUserForSession(const std::string& sessionid)
+  string getUserForSession(const std::string& sessionid, const std::string& agent, const std::string& ip)
   {
     try {
-      auto ret = d_lsqw.query("select * from sessions where sessionid=?", {sessionid});
-      if(ret.size()==1)
+      auto ret = d_lsqw.query("select * from sessions where id=?", {sessionid});
+      if(ret.size()==1) {
+        d_lsqw.query("update sessions set lastUseTstamp=?, agent=?, ip=? where id=?", {time(0), agent, ip, sessionid});
         return get<string>(ret[0]["user"]);
+      }
     }
     catch(...){}
     return "";
   }
-  string createSessionForUser(const std::string& user)
+  
+  string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip)
   {
-    string sessionid=to_string(getRandom63())+to_string(getRandom63());
-    d_lsqw.addValue({{"sessionid", sessionid}, {"user", user}, {"createTstamp", time(0)}}, "sessions");
+    string sessionid=makeShortID(getRandom63())+makeShortID(getRandom63());
+    d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)}, {"lastUseTstamp", 0}}, "sessions");
     return sessionid;
   }
 
@@ -169,7 +174,8 @@ struct AuthReqs
 
   string getUser(const httplib::Request &req)  const
   {
-    return d_sessions.getUserForSession(getSessionID(req));
+    string ip=req.remote_addr, agent= req.get_header_value("User-Agent");
+    return d_sessions.getUserForSession(getSessionID(req), agent, ip);
   }
   
   Sessions& d_sessions;
@@ -214,7 +220,8 @@ int main(int argc, char**argv)
                    {
                      {"users", {{"user", "PRIMARY KEY"}}},
                      {"posts", {{"id", "PRIMARY KEY"}, {"user", "NOT NULL REFERENCES users(user) ON DELETE CASCADE"}}},
-                     {"images", {{"id", "PRIMARY KEY"}, {"postId", "NOT NULL REFERENCES posts(id) ON DELETE CASCADE"}}}
+                     {"images", {{"id", "PRIMARY KEY"}, {"postId", "NOT NULL REFERENCES posts(id) ON DELETE CASCADE"}}},
+                     {"sessions", {{"id", "PRIMARY KEY"}, {"user", "NOT NULL REFERENCES users(user) ON DELETE CASCADE"}}}
                    });
   std::mutex sqwlock;
   LockedSqw lsqw{sqw, sqwlock};
@@ -258,8 +265,9 @@ int main(int argc, char**argv)
     string password = fields["password"];
     nlohmann::json j;
     j["ok"]=0;
-    if(u.checkPassword(user, password)) { 
-      string sessionid = sessions.createSessionForUser(user);
+    if(u.checkPassword(user, password)) {
+      string ip=req.remote_addr, agent= req.get_header_value("User-Agent");
+      string sessionid = sessions.createSessionForUser(user, ip, agent);
       res.set_header("Set-Cookie",
                      "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
       cout<<"Logged in user "<<user<<endl;
@@ -330,6 +338,11 @@ int main(int argc, char**argv)
   });
 
   svr.Get("/status", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+    /*
+    for(auto&& [name, f] : req.headers) {
+      cout<<name<<": "<<f<<endl;
+    }
+    */
     nlohmann::json j;
     string user;
     try {
@@ -389,7 +402,7 @@ int main(int argc, char**argv)
         j["id"]=imgid;
         j["postId"] = postId;
         res.set_content(j.dump(), "application/json");
-        lsqw.addValue({{"action", "upload"} , {"image_id", imgid}, {"tstamp", tstamp}}, "log");
+        lsqw.addValue({{"action", "upload"} , {"imageId", imgid}, {"tstamp", tstamp}}, "log");
       }
       
     });
@@ -402,7 +415,7 @@ int main(int argc, char**argv)
       string user = a.getUser(req);
       cout<<"Attemping to delete image "<<imgid<<" for user " << user << endl;
       lsqw.query("delete from images where id=? and user=?", {imgid, user});
-      lsqw.addValue({{"action", "delete-image"}, {"user", user}, {"image_id", imgid}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "delete-image"}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
 
     svr.Post("/set-post-title/(.+)", [&lsqw, a](const auto& req, auto& res) {
@@ -439,8 +452,6 @@ int main(int argc, char**argv)
 
     
     svr.Post("/set-image-public/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
-      cout<<"change image public called"<<endl;
-
       if(!a.check(req))
         throw std::runtime_error("Can't delete if not logged in");
       string imgid = req.matches[1];
@@ -449,7 +460,7 @@ int main(int argc, char**argv)
       string user = a.getUser(req);
       // XXX admin should be able to do this for everyone
       lsqw.query("update images set public =? where id=? and user=?", {pub, imgid, a.getUser(req)});
-      lsqw.addValue({{"action", "change-image-public"}, {"user", user}, {"image_id", imgid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "change-image-public"}, {"user", user}, {"imageId", imgid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     });
 
     
@@ -506,6 +517,14 @@ int main(int argc, char**argv)
         lsqw.queryJ(res, "select user, email, disabled, lastLoginTstamp, admin from users", {});
       });
 
+      svr.Get("/all-sessions", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+        if(!a.check(req)) {
+          throw std::runtime_error("Not admin");
+        }
+        lsqw.queryJ(res, "select * from sessions", {});
+      });
+
+      
       svr.Post("/create-user", [&lsqw, &sessions, &u, a](const httplib::Request &req, httplib::Response &res) {
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");

@@ -13,10 +13,11 @@
   <div x-data="{ login: '', 
                  user: '', 
                  users: [],
+                 sessions: [],
                  loggedon: false, 
                  create_feedback: '',
                  images: []
-}" x-init="getLoginStatus($data);getUserList($data);getImageList($data);" @paste.window="getImage($data, $event)">
+}" x-init="getLoginStatus($data);getUserList($data);getImageList($data); getSessionList($data);" @paste.window="getImage($data, $event)">
     <header>
       <h1><a href="/">Trifecta</a> - admin</h1>
 
@@ -88,6 +89,29 @@
       </table>
     </div>
 
+    <div id="sessionlist">
+      <h2>All sessions</h2>
+      <table>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>IP</th>
+          <th>Created</th>
+          <th>Last use</th>
+        </tr>
+        <template x-for="s in sessions">
+          <tr>
+            <td x-text="s.id"></td>
+            <td x-text="s.user"></td>
+            <td x-text="s.ip"></td>            
+            <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return "";"></td>
+            <td x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return "";"></td>            
+          </tr>
+        </template>
+      </table>
+    </div>
+
+    
     <div id="imagelist">
       <h2>All images</h2>
       <table>

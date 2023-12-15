@@ -57,6 +57,14 @@ function getUserList(f)
     });
 }
 
+function getSessionList(f)
+{
+    fetch('all-sessions').then(response => response.json()).then(data => {
+        f.sessions = data;
+    });
+}
+
+
 function getMyImageList(f)
 {
     fetch('my-images').then(response => response.json()).then(data => {
