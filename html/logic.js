@@ -50,6 +50,12 @@ function getImageList(f)
         f.images = data;
     });
 }
+function getUserList(f)
+{
+    fetch('all-users').then(response => response.json()).then(data => {
+        f.users = data;
+    });
+}
 
 function getMyImageList(f)
 {
@@ -161,3 +167,28 @@ function getImageFromPaste(f, e)
     }
 }
 
+function doCreateUser(el, f)
+{
+    let user =el[0].value;
+    let pass1 = el[1].value;
+    let pass2 = el[2].value;
+    f.create_feedback ="";
+    if(pass1 != pass2) {
+        f.create_feedback="<font color='#ff0000'>Passwords do not match</font>";
+        return;
+    }
+    
+    fetch("create-user", {method: "POST", body: new FormData(el)}).then(response =>
+        {
+            if(response.ok) {
+                response.json().then(data => {
+                    if(data.ok)
+                        f.create_feedback="User created";
+                    else
+                        f.create_feedback=data.message;
+                });
+            }
+            else
+                f.create_feedback="Error sending creation request";
+        });
+}

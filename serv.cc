@@ -34,6 +34,8 @@ Todo:
 // helper that makes sure only 1 thread uses the sqlitewriter at a time, plus some glue to emit answers as json
 struct LockedSqw
 {
+  LockedSqw(const LockedSqw&) = delete;
+  
   SQLiteWriter& sqw;
   std::mutex& sqwlock;
   vector<unordered_map<string, MiniSQLite::outvar_t>> query(const std::string& query, const std::initializer_list<SQLiteWriter::var_t>& values)
@@ -74,11 +76,11 @@ struct Users
   {
     bool ret=false;
     if(cap=="valid-user") {
-      auto c = d_lsqw.query("select count(1) as c from users where useruser=? and disabled=0", {user});
+      auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0", {user});
       ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
     }
     else if(cap=="admin") {
-      auto c = d_lsqw.query("select count(1) as c from users where useruser=? and disabled=0 and admin=1", {user});
+      auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0 and admin=1", {user});
       ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
     }
     return ret;
@@ -88,7 +90,7 @@ struct Users
 
 bool Users::checkPassword(const std::string& user, const std::string& password) const
 {
-  auto res = d_lsqw.query("select pwhash, caps from users where useruser=? and disabled=0", {user});
+  auto res = d_lsqw.query("select pwhash, caps from users where user=? and disabled=0", {user});
   if(res.empty())
     return false;
   return bcrypt::validatePassword(password, get<string>(res[0]["pwhash"]));
@@ -98,7 +100,7 @@ void Users::createUser(const std::string& user, const std::string& password, con
 {
   string pwhash = bcrypt::generateHash(password);
   cout<<"Going to add user '"<<user<<"'"<<endl;
-  d_lsqw.addValue({{"useruser", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
+  d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
 }
 
 class Sessions
@@ -208,7 +210,12 @@ int main(int argc, char**argv)
     std::exit(1);
   }
 
-  SQLiteWriter sqw(args.get<string>("db-file"), {{"useruser", "UNIQUE"}});
+  SQLiteWriter sqw(args.get<string>("db-file"),
+                   {
+                     {"users", {{"user", "PRIMARY KEY"}}},
+                     {"posts", {{"id", "PRIMARY KEY"}, {"user", "NOT NULL REFERENCES users(user) ON DELETE CASCADE"}}},
+                     {"images", {{"id", "PRIMARY KEY"}, {"postId", "NOT NULL REFERENCES posts(id) ON DELETE CASCADE"}}}
+                   });
   std::mutex sqwlock;
   LockedSqw lsqw{sqw, sqwlock};
   Users u(lsqw);
@@ -259,7 +266,7 @@ int main(int argc, char**argv)
       j["ok"]=1;
       j["message"]="welcome!";
       lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
-      lsqw.query("update users set lastLoginTstamp=? where useruser=?", {time(0), user});
+      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
               
     }
     else {
@@ -492,14 +499,40 @@ int main(int argc, char**argv)
         lsqw.queryJ(res, "select id, user,timestamp,content_type,length(image) as size, public,ip from images", {});
       });
 
-      svr.Post("/create-user", [&lsqw, &sessions, &u](const httplib::Request &req, httplib::Response &res) {
-        auto fields=getFormFields(req.body);
-        for(const auto& f : fields) {
-          fmt::print("'{}'\t'{}'\n", f.first, f.second);
+      svr.Get("/all-users", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+        if(!a.check(req)) {
+          throw std::runtime_error("Not admin");
         }
-        // XXXX
+        lsqw.queryJ(res, "select user, email, disabled, lastLoginTstamp, admin from users", {});
       });
-      
+
+      svr.Post("/create-user", [&lsqw, &sessions, &u](const httplib::Request &req, httplib::Response &res) {
+        string password1, user;
+        for(auto&& [name, f] : req.files) {
+          cout << name<<" " << f.content << endl;
+          if(name=="password1")
+            password1 = f.content;
+          if(name=="user")
+            user = f.content;
+        }
+        nlohmann::json j;
+        
+        if(password1.empty() || user.empty()) {
+          j["ok"]=false;
+          j["message"] = "User or password field empty";
+        }
+        else {
+          try {
+            u.createUser(user, password1, "", false);
+            j["ok"] = true;
+          }
+          catch(std::exception& e) {
+            j["ok"]=false;
+            j["message"]=e.what();
+          }
+        }
+        res.set_content(j.dump(), "application/json");
+      });
     }
   }
   
