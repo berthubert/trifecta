@@ -506,7 +506,11 @@ int main(int argc, char**argv)
         lsqw.queryJ(res, "select user, email, disabled, lastLoginTstamp, admin from users", {});
       });
 
-      svr.Post("/create-user", [&lsqw, &sessions, &u](const httplib::Request &req, httplib::Response &res) {
+      svr.Post("/create-user", [&lsqw, &sessions, &u, a](const httplib::Request &req, httplib::Response &res) {
+        if(!a.check(req)) {
+          throw std::runtime_error("Not admin");
+        }
+
         string password1, user;
         for(auto&& [name, f] : req.files) {
           cout << name<<" " << f.content << endl;
