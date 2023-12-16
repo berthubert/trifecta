@@ -133,7 +133,7 @@ public:
 
   void dropSession(const std::string& sessionid)
   {
-    d_lsqw.query("delete from sessions where sessionid=?", {sessionid});
+    d_lsqw.query("delete from sessions where id=?", {sessionid});
   }
 private:
   LockedSqw& d_lsqw;
