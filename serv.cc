@@ -121,7 +121,7 @@ void Users::changePassword(const std::string& user, const std::string& password)
     d_lsqw.addValue({{"action", "change-password-failure"}, {"user", user}, {"ip", "xx missing xx"}, {"meta", "no such user"}, {"tstamp", time(0)}}, "log");
     throw std::runtime_error("Tried to change password for user '"+user+"', but does not exist");
   }
-  d_lsqw.query("update passwords set pwhash=? where user=?", {pwhash, user});
+  d_lsqw.query("update users set pwhash=? where user=?", {pwhash, user});
   d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
@@ -223,7 +223,7 @@ int main(int argc, char**argv)
 
   args.add_argument("db-file").help("file to read database from").default_value("trifecta.sqlite");
   args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
-  args.add_argument("--admin-password").help("If set, create admin user with this password");
+  args.add_argument("--admin-password").help("If set, create admin user with this password or change password");
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
   args.add_argument("--local-address", "-l").help("address to listen on").default_value("0.0.0.0");
   
@@ -248,7 +248,12 @@ int main(int argc, char**argv)
   Users u(lsqw);
   
   if(auto fn = args.present("--admin-password")) {
-    u.createUser("admin", *fn, "", true);
+    if(u.userHasCap("admin", "admin")) {
+      cout<<"Admin user existed already, updating password"<<endl;
+      u.changePassword("admin", *fn);
+    }
+    else
+      u.createUser("admin", *fn, "", true);
   }
   
   httplib::Server svr;
