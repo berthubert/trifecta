@@ -206,6 +206,7 @@ int main(int argc, char**argv)
   args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
   args.add_argument("--admin-password").help("If set, create admin user with this password");
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
+  args.add_argument("--local-address", "-l").help("address to listen on").default_value("0.0.0.0");
   
   try {
     args.parse_args(argc, argv);
@@ -558,7 +559,17 @@ int main(int argc, char**argv)
       });
     }
   }
+
+  string laddr = args.get<string>("local-address");
+  cout<<"Will listen on http://"<< laddr <<":"<<args.get<int>("port")<<endl;
   
-  cout<<"Will listen on http://127.0.0.1:"<<args.get<int>("port")<<endl;
-  svr.listen("0.0.0.0", args.get<int>("port"));
+  svr.set_socket_options([](socket_t sock) {
+   int yes = 1;
+   setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
+                reinterpret_cast<const void *>(&yes), sizeof(yes));
+  });
+  
+  if(!svr.listen(laddr, args.get<int>("port"))) {
+    cout<<"Error launching server: "<<strerror(errno)<<endl;
+  }
 }
