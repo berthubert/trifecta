@@ -15,15 +15,16 @@ using namespace std;
 
 /*
 Todo:
-  Enable password reset email
-  sqlitewriter have metadata per table
-
   Configuration items in database
-  Enable _actual_ thumbnails
-  expiry in UI
+  Enable password reset email
 
-  baseurl or javascript so the 'trifecta button' goes to the right place
+  implement expiry in UI
+
   commandline interface to *change* password for admin
+  make sure admin can do everything
+  implement change (my) password
+  implement deleting a user
+  if a user is disabled, do images disappear?
 */
 
 /* posts:
@@ -71,7 +72,8 @@ struct Users
   {}
   bool checkPassword(const std::string& user, const std::string& password) const;
   void createUser(const std::string& user, const std::string& password, const std::string& email, bool admin);
-  set<string> getCaps(const std::string& user) const;
+  void changePassword(const std::string& user, const std::string& password);
+  void delUser(const std::string& user);
   bool userHasCap(const std::string& user, const std::string& cap)
   {
     bool ret=false;
@@ -103,6 +105,24 @@ void Users::createUser(const std::string& user, const std::string& password, con
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
   d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 
+}
+
+void Users::delUser(const std::string& user) 
+{
+  d_lsqw.query("delete from users where user=?", {user});
+}
+
+void Users::changePassword(const std::string& user, const std::string& password)
+{
+  string pwhash = bcrypt::generateHash(password);
+  cout<<"Going to change password for  '"<<user<<"'"<<endl;
+  auto res = d_lsqw.query("select user from users where user=?", {user});
+  if(res.size()!=1 || get<string>(res[0]["user"]) != user) {
+    d_lsqw.addValue({{"action", "change-password-failure"}, {"user", user}, {"ip", "xx missing xx"}, {"meta", "no such user"}, {"tstamp", time(0)}}, "log");
+    throw std::runtime_error("Tried to change password for user '"+user+"', but does not exist");
+  }
+  d_lsqw.query("update passwords set pwhash=? where user=?", {pwhash, user});
+  d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
 class Sessions
@@ -444,6 +464,18 @@ int main(int argc, char**argv)
       lsqw.addValue({{"action", "set-image-caption"}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
 
+    svr.Post("/change-my-password/?", [&lsqw, &u, a](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Can't change your password if not logged in");
+      auto pwfield = req.get_file_value("password");
+      if(pwfield.content.empty())
+        throw std::runtime_error("Can't set an empty password");
+      
+      string user = a.getUser(req);
+      cout<<"Attemping to set password for user "<<user<<endl;
+      u.changePassword(user, pwfield.content);
+    });
+    
     
     svr.Post("/set-image-public/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
       if(!a.check(req))
@@ -564,6 +596,18 @@ int main(int argc, char**argv)
       lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
     });
 
+    svr.Post("/change-password/?", [&lsqw, &u, a](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Not admin");
+      auto pwfield = req.get_file_value("password");
+      if(pwfield.content.empty())
+        throw std::runtime_error("Can't set an empty password");
+      
+      string user = req.get_file_value("user").content;
+      cout<<"Attemping to set password for user "<<user<<endl;
+      u.changePassword(user, pwfield.content);
+    });
+    
     svr.Post("/kill-session/([^/]+)", [&lsqw, a](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Not admin");
@@ -572,7 +616,16 @@ int main(int argc, char**argv)
       lsqw.addValue({{"action", "kill-session"}, {"session", session}, {"tstamp", time(0)}}, "log");
     });
 
+    svr.Post("/del-user/([^/]+)", [&lsqw, a, &u](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Not admin");
+      string user = req.matches[1];
+      u.delUser(user);
 
+      lsqw.addValue({{"action", "del-user"}, {"user", user}, {"tstamp", time(0)}}, "log");
+    });
+
+    
   }
 
   string laddr = args.get<string>("local-address");
@@ -586,5 +639,6 @@ int main(int argc, char**argv)
   
   if(!svr.listen(laddr, args.get<int>("port"))) {
     cout<<"Error launching server: "<<strerror(errno)<<endl;
+    return EXIT_FAILURE;
   }
 }

@@ -128,6 +128,16 @@ function doKillSession(f, sessionid)
     });
 }
 
+function doDelUser(f, user)
+{
+    fetch("del-user/"+user, {method: "POST"}).then(function(res){
+        if(res.ok) {
+            getUserList(f);
+        }
+    });
+}
+
+
 function doChangeUserDisabled(f, user, el)
 {
     let val = el.checked ? "1" : "0";
@@ -214,8 +224,10 @@ function doCreateUser(el, f)
         {
             if(response.ok) {
                 response.json().then(data => {
-                    if(data.ok)
+                    if(data.ok) {
                         f.create_feedback="User created";
+                        getUserList(f);
+                    }
                     else
                         f.create_feedback=data.message;
                 });

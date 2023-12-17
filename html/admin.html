@@ -76,6 +76,7 @@
           <th>Disabled</th>
           <th>Lastlogin</th>
           <th>Email</th>
+          <th>Delete</th>
         </tr>
         <template x-for="u in users">
           <tr>
@@ -87,6 +88,7 @@
             
             <td x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return "";"></td>
             <td x-text="u.email"></td>
+            <td><a href="#" @click.prevent="doDelUser($data, u.user)">X</a></td>
           </tr>
         </template>
       </table>
