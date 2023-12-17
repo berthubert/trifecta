@@ -318,7 +318,7 @@ int main(int argc, char**argv)
       user = a.getUser(req);
     }catch(...){}
     
-    auto results = lsqw.query("select image,publicUntilTstamp,user from images where id=? and (public=1 or user=?) ", {imgid, user});
+    auto results = lsqw.query("select image,content_type,publicUntilTstamp,user from images where id=? and (public=1 or user=?) ", {imgid, user});
 
     if(results.size() != 1) {
       return;
@@ -334,7 +334,7 @@ int main(int argc, char**argv)
     
     auto img = get<vector<uint8_t>>(results[0]["image"]);
     string s((char*)&img[0], img.size());
-    res.set_content(s, "image/png");
+    res.set_content(s, get<string>(results[0]["content_type"]));
     res.status = 200;
   });
 
@@ -384,8 +384,8 @@ int main(int argc, char**argv)
       
       for(auto&& [name, f] : req.files) {
         fmt::print("name {}, filename {}, content_type {}, size {}, postid {}\n", f.name, f.filename, f.content_type, f.content.size(), postId);
-        if(f.content_type != "image/png" && f.filename.empty()) {
-          cout<<"Skipping non-PNG or non-file"<<endl;
+        if(f.content_type.substr(0,6) != "image/" || f.filename.empty()) {
+          cout<<"Skipping non-image or non-file"<<endl;
           continue;
         }
         vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
