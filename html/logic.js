@@ -172,6 +172,8 @@ function getImageFromPaste(f, e)
                 console.error('Network error during file upload', error);
             });
         }
+        else
+            console.log("Don't know how to deal with paste of "+clipboardItem.type);
     }
 }
 
