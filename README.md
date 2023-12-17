@@ -35,8 +35,7 @@ Both images and posts can be public or not.
 # Known problems
 
  * You can only paste files right now, not drag and drop
- * Public is not yet implemented for posts, only for images
- * You can't yet create users online
+ * "Public"/non-public is not yet implemented for posts, only for images
 
 # Building
 Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
