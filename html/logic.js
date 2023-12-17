@@ -90,7 +90,7 @@ function doLogin(el, f)
             getLoginStatus(f);
         }
         else
-            f.loginmessage=data.message; 
+            f.message2user = data.message; 
     });
 }
 
@@ -107,18 +107,40 @@ function doDeleteImage(f, imageid)
         });
 }
 
-function doChangePublic(f, imageid, el)
+function doDeleteImage(f, imageid)
+{
+    return fetch("delete-image/" + imageid, {method: "POST"})
+        .then(function(res){
+            if(res.ok) {
+                f.images = f.images.filter(function(item) {
+                    return item.id !== imageid;
+                })
+            }
+        });
+}
+
+function doKillSession(f, sessionid)
+{
+    fetch("kill-session/"+sessionid, {method: "POST"}).then(function(res){
+        if(res.ok) {
+            getSessionList(f);
+        }
+    });
+}
+
+function doChangeUserDisabled(f, user, el)
 {
     let val = el.checked ? "1" : "0";
     el.disabled = true; // disable while transaction is running
 
-    fetch("set-image-public/"+imageid+"/"+val, {method: "POST"}).then(function(res){
+    fetch("change-user-disabled/"+user+"/"+val, {method: "POST"}).then(function(res){
         el.disabled = false;
 
         if(res.ok)
             el.checked = !el.checked; 
     });
 }
+
 
 function processCaptionKey(f, el, e, imageid)
 {

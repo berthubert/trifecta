@@ -197,7 +197,6 @@ struct AuthSentinel
   string d_auth;
 };
 
-
 int main(int argc, char**argv)
 {
   argparse::ArgumentParser args("serv");
@@ -279,6 +278,7 @@ int main(int argc, char**argv)
               
     }
     else {
+      cout<<"Wrong user or password"<<endl;
       j["message"]="Wrong user or password";
       lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
     }
@@ -293,7 +293,6 @@ int main(int argc, char**argv)
                    "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
     res.set_header("Location", "../");
     res.status = 303;
-    
   });
 
   svr.Get("/getPost/:postid", [&lsqw, a](const auto& req, auto& res) {
@@ -339,11 +338,6 @@ int main(int argc, char**argv)
   });
 
   svr.Get("/status", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
-    /*
-    for(auto&& [name, f] : req.headers) {
-      cout<<name<<": "<<f<<endl;
-    }
-    */
     nlohmann::json j;
     string user;
     try {
@@ -405,7 +399,6 @@ int main(int argc, char**argv)
         res.set_content(j.dump(), "application/json");
         lsqw.addValue({{"action", "upload"} , {"imageId", imgid}, {"tstamp", tstamp}}, "log");
       }
-      
     });
 
     svr.Post("/delete-image/(.+)", [&lsqw, a](const auto& req, auto& res) {
@@ -454,7 +447,7 @@ int main(int argc, char**argv)
     
     svr.Post("/set-image-public/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
       if(!a.check(req))
-        throw std::runtime_error("Can't delete if not logged in");
+        throw std::runtime_error("Can't change public setting if not logged in");
       string imgid = req.matches[1];
       bool pub = stoi(req.matches[2]);
       cout<<"imgid: "<<imgid<<", new state: "<<pub<<endl;
@@ -558,6 +551,28 @@ int main(int argc, char**argv)
         res.set_content(j.dump(), "application/json");
       });
     }
+
+    svr.Post("/change-user-disabled/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Not admin");
+      string user = req.matches[1];
+      bool disabled = stoi(req.matches[2]);
+      lsqw.query("update users set disabled = ? where user=?", {disabled, user});
+      if(disabled) {
+        lsqw.query("delete from sessions where user=?", {user});
+      }
+      lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
+    });
+
+    svr.Post("/kill-session/([^/]+)", [&lsqw, a](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Not admin");
+      string session = req.matches[1];
+      lsqw.query("delete from sessions where id=?", {session});
+      lsqw.addValue({{"action", "kill-session"}, {"session", session}, {"tstamp", time(0)}}, "log");
+    });
+
+
   }
 
   string laddr = args.get<string>("local-address");
