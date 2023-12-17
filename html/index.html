@@ -65,7 +65,7 @@
               <img x-cloak x-bind:src="'i/'+g.id">
               <p x-bind:contenteditable="can_touch_post ? true:false"
                 @keydown="processCaptionKey($data, $el, $event, g.id)"
-                x-html="if(g.caption=='') return '...type a caption...'; else return g.caption;"
+                x-html="if(g.caption=='' && can_touch_post) return '...type a caption...'; else return g.caption;"
                 x-style="if(g.caption=='') return 'color: #cccccc;'; else return '';"></p>
               <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
             </div>
