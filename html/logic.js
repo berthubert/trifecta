@@ -138,6 +138,21 @@ function doDelUser(f, user)
 }
 
 
+function doChangePublic(f, imageid, el)
+{
+    let val = el.checked ? "1" : "0";
+    el.disabled = true; // disable while transaction is running
+    
+    fetch("set-image-public/"+imageid+"/"+val, {method: "POST"}).then(function(res){
+        el.disabled = false;
+        
+        if(res.ok)
+            el.checked = !el.checked; 
+    });
+}
+
+
+
 function doChangeUserDisabled(f, user, el)
 {
     let val = el.checked ? "1" : "0";

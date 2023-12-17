@@ -140,7 +140,11 @@
             <td x-text="g.ip"></td>
             <td x-text="g.content_type"></td>
             <td x-text="g.size"></td>
-            <td><input type="checkbox" x-bind:checked="g.public" /></td>
+            <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox"
+                       x-bind:checked="g.public" />
+            </td>
+
+            
             <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
           </tr>
         </template>
