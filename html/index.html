@@ -23,7 +23,7 @@
                  get canDelImage() { return( this.loggedon && this.postid != '');},
                  get canShowImage() { return( this.images.length > 0);},
                  get showPasteImage() { return ( this.loggedon);} 
-}" x-init="getLoginStatus($data);getMyImageList($data);" @paste.window="getImageFromPaste($data, $event)">
+}" x-init="getLoginStatus($data);getMyImageList($data);" >
     <header>
       <h1><a href="./">Trifecta</a></h1>
 
@@ -73,9 +73,9 @@
         </div>
       </div>
 
-      <div id="paste" x-show="showPasteImage">
+      <div id="paste" x-show="showPasteImage" @paste="getImageFromPaste($data, $event)">
         <h2>Paste your image here</h2>
-        <p>Simply paste your picture into this page...</p>
+        <p>Simply paste your picture here.</p>
       </div>
 
 
@@ -96,12 +96,12 @@
             </tr>
             <template x-for="g in myimages">
               <tr>
-                <td x-text="new Date(g.timestamp * 1000).toLocaleString()"></td>
+                <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
                 <td x-text="g.id"></td>
                 <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
                 <td x-text="g.content_type"></td>
                 <td x-text="g.size"></td>
-                <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox"
+                <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
                     x-bind:checked="g.public" />
                 </td>
                 <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">

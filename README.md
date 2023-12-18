@@ -76,6 +76,7 @@ location /trifecta/ {
 	proxy_pass http://backendtrifect;
 	add_header X-Cache-Status $upstream_cache_status;
         client_max_body_size 50M; 
+        proxy_set_header X-Real-IP $proxy_protocol_addr;
 
         add_header X-Cache-Status $upstream_cache_status;
         add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;

@@ -192,11 +192,20 @@ struct AuthReqs
     d_sessions.dropSession(getSessionID(req));
   }
 
+  // XXXX should only trust LOCAL_ADDR if traffic is from a known and trusted proxy
+  string getIP(const httplib::Request& req) const
+  {
+    if(req.has_header("X-Real-IP"))
+      return req.get_header_value("X-Real-IP");
+    return req.remote_addr;
+  }
+  
   string getUser(const httplib::Request &req)  const
   {
-    string ip=req.remote_addr, agent= req.get_header_value("User-Agent");
+    string ip=getIP(req), agent= req.get_header_value("User-Agent");
     return d_sessions.getUserForSession(getSessionID(req), agent, ip);
   }
+
   
   Sessions& d_sessions;
   Users& d_users;
@@ -216,6 +225,15 @@ struct AuthSentinel
   AuthReqs& d_ar;
   string d_auth;
 };
+
+void checkImageOwnership(LockedSqw& lsqw, Users& u, std::string& user, std::string& imgid)
+{
+  if(!u.userHasCap(user, "admin")) {
+    auto check = lsqw.query("select user from images, posts where images.postId = posts.id and images.id=? and user=?", {imgid, user});
+    if(check.empty())
+      throw std::runtime_error("Can't touch image from post that is not yours ("+user+")");
+  }
+}
 
 int main(int argc, char**argv)
 {
@@ -248,11 +266,18 @@ int main(int argc, char**argv)
   Users u(lsqw);
   
   if(auto fn = args.present("--admin-password")) {
-    if(u.userHasCap("admin", "admin")) {
-      cout<<"Admin user existed already, updating password"<<endl;
-      u.changePassword("admin", *fn);
+    bool changed=false;
+    try {
+      if(u.userHasCap("admin", "admin")) {
+        cout<<"Admin user existed already, updating password"<<endl;
+        u.changePassword("admin", *fn);
+        changed=true;
+      }
     }
-    else
+    catch(...) {
+    }
+      
+    if(!changed)
       u.createUser("admin", *fn, "", true);
   }
   
@@ -280,7 +305,7 @@ int main(int argc, char**argv)
 
   // anyone can do this
 
-  svr.Post("/login", [&lsqw, &sessions, &u](const httplib::Request &req, httplib::Response &res) {
+  svr.Post("/login", [&lsqw, &sessions, &u, &a](const httplib::Request &req, httplib::Response &res) {
     auto fields=getFormFields(req.body);
     for(const auto& f : fields) {
       fmt::print("'{}'\t'{}'\n", f.first, f.second);
@@ -291,21 +316,21 @@ int main(int argc, char**argv)
     nlohmann::json j;
     j["ok"]=0;
     if(u.checkPassword(user, password)) {
-      string ip=req.remote_addr, agent= req.get_header_value("User-Agent");
+      string ip=a.getIP(req), agent= req.get_header_value("User-Agent");
       string sessionid = sessions.createSessionForUser(user, ip, agent);
       res.set_header("Set-Cookie",
                      "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
       cout<<"Logged in user "<<user<<endl;
       j["ok"]=1;
       j["message"]="welcome!";
-      lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
       lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
               
     }
     else {
       cout<<"Wrong user or password"<<endl;
       j["message"]="Wrong user or password";
-      lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
     }
     
     res.set_content(j.dump(), "application/json");
@@ -342,9 +367,10 @@ int main(int argc, char**argv)
       user = a.getUser(req);
     }catch(...){}
     
-    auto results = lsqw.query("select image,content_type,publicUntilTstamp,user from images where id=? and (public=1 or user=?) ", {imgid, user});
+    auto results = lsqw.query("select image,content_type, posts.publicUntilTstamp,user from images,posts where images.id=? and posts.id = images.postId and (public=1 or user=?) ", {imgid, user});
 
     if(results.size() != 1) {
+      lsqw.addValue({{"action", "view-failed"} , {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
       return;
     }
 
@@ -360,9 +386,11 @@ int main(int argc, char**argv)
     string s((char*)&img[0], img.size());
     res.set_content(s, get<string>(results[0]["content_type"]));
     res.status = 200;
+
+    lsqw.addValue({{"action", "view"} , {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
   });
 
-  svr.Get("/status", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+  svr.Get("/status", [&lsqw, a, &u](const httplib::Request &req, httplib::Response &res) {
     nlohmann::json j;
     string user;
     try {
@@ -371,10 +399,15 @@ int main(int argc, char**argv)
     catch(exception& e) {
       cout<<"On /status, could not find a session"<<endl;
     }
-      
+    for(auto&& [k, v] : req.headers) {
+      cout<< k <<": "<<v<<endl;
+    }
     j["login"] = !user.empty();
-    if(!user.empty())
+    j["admin"] = false;
+    if(!user.empty()) {
       j["user"] = user;
+      j["admin"]=u.userHasCap(user, "admin");
+    }
     
     res.set_content(j.dump(), "application/json");
   });
@@ -383,9 +416,10 @@ int main(int argc, char**argv)
   {
     AuthSentinel as(a, "valid-user");
 
-    svr.Post("/upload", [&lsqw, a](const auto& req, auto& res) {
+    svr.Post("/upload", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't upload if not logged in");
+      string user = a.getUser(req);
       time_t tstamp = time(0);
       cout<<"Got "<<req.files.size()<<" files"<<endl;
       string postId;
@@ -398,7 +432,12 @@ int main(int argc, char**argv)
       }
       if(postId.empty()) {
         postId = makeShortID(getRandom63());
-        lsqw.addValue({{"id", postId}, {"user", a.getUser(req)}, {"timestamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
+        lsqw.addValue({{"id", postId}, {"user", user}, {"stamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
+      }
+      else if(!u.userHasCap(user, "admin")) {
+        auto access=lsqw.query("select id from posts where id=? and user=?", {postId, a.getUser(req)});
+        if(access.empty())
+          throw std::runtime_error("Attempt to upload to post that's not ours!");
       }
       
       for(auto&& [name, f] : req.files) {
@@ -409,32 +448,34 @@ int main(int argc, char**argv)
         }
         vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
         auto imgid=makeShortID(getRandom63());
-        lsqw.addValue({{"id", imgid}, {"public", 1},
-                       {"ip", req.remote_addr},
-                       {"user", a.getUser(req)},
-                       {"timestamp", tstamp},
+        lsqw.addValue({{"id", imgid},
+                       {"ip", a.getIP(req)},
+                       {"tstamp", tstamp},
                        {"image", content},
                        {"content_type", f.content_type},
                        {"postId", postId},
-                       {"caption", ""},
-                       {"publicUntilTstamp", 0}}, "images");
+                       {"caption", ""}
+          }, "images");
         nlohmann::json j;
         j["id"]=imgid;
         j["postId"] = postId;
         res.set_content(j.dump(), "application/json");
-        lsqw.addValue({{"action", "upload"} , {"imageId", imgid}, {"tstamp", tstamp}}, "log");
+        lsqw.addValue({{"action", "upload"} , {"user", a.getUser(req)}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", tstamp}}, "log");
       }
     });
 
-    svr.Post("/delete-image/(.+)", [&lsqw, a](const auto& req, auto& res) {
+    
+    svr.Post("/delete-image/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't delete if not logged in");
       string imgid = req.matches[1];
 
       string user = a.getUser(req);
       cout<<"Attemping to delete image "<<imgid<<" for user " << user << endl;
-      lsqw.query("delete from images where id=? and user=?", {imgid, user});
-      lsqw.addValue({{"action", "delete-image"}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
+      checkImageOwnership(lsqw, u, user, imgid);
+      
+      lsqw.query("delete from images where id=?", {imgid});
+      lsqw.addValue({{"action", "delete-image"}, {"ip", a.getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
 
     svr.Post("/set-post-title/(.+)", [&lsqw, a](const auto& req, auto& res) {
@@ -450,10 +491,10 @@ int main(int argc, char**argv)
       string user = a.getUser(req);
       cout<<"Attemping to set title for post "<< postid<<" for user " << user <<" to " << title << endl;
       lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
-      lsqw.addValue({{"action", "set-post-title"}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "set-post-title"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
     });
 
-    svr.Post("/set-image-caption/(.+)", [&lsqw, a](const auto& req, auto& res) {
+    svr.Post("/set-image-caption/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't set image caption if not logged in");
       string imgid = req.matches[1];
@@ -465,8 +506,9 @@ int main(int argc, char**argv)
       }
       string user = a.getUser(req);
       cout<<"Attemping to set caption for image "<< imgid<<" for user " << user <<" to " << caption << endl;
-      lsqw.query("update images set caption=? where user=? and id=?", {caption, user, imgid});
-      lsqw.addValue({{"action", "set-image-caption"}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
+      checkImageOwnership(lsqw, u, user, imgid);
+      lsqw.query("update images set caption=? where id=?", {caption, imgid});
+      lsqw.addValue({{"action", "set-image-caption"}, {"ip", a.getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
 
     svr.Post("/change-my-password/?", [&lsqw, &u, a](const auto& req, auto& res) {
@@ -482,16 +524,16 @@ int main(int argc, char**argv)
     });
     
     
-    svr.Post("/set-image-public/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
+    svr.Post("/set-post-public/([^/]+)/([01])", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't change public setting if not logged in");
-      string imgid = req.matches[1];
+      string postid = req.matches[1];
       bool pub = stoi(req.matches[2]);
-      cout<<"imgid: "<<imgid<<", new state: "<<pub<<endl;
+      cout<<"imgid: "<< postid << ", new state: "<<pub<<endl;
       string user = a.getUser(req);
-      // XXX admin should be able to do this for everyone
-      lsqw.query("update images set public =? where id=? and user=?", {pub, imgid, a.getUser(req)});
-      lsqw.addValue({{"action", "change-image-public"}, {"user", user}, {"imageId", imgid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
+
+      lsqw.query("update posts set public =? where id=?", {pub, postid});
+      lsqw.addValue({{"action", "change-post-public"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     });
 
     
@@ -519,12 +561,12 @@ int main(int argc, char**argv)
       if(!a.check(req)) {
         throw std::runtime_error("Not logged-in");
       }
-      lsqw.queryJ(res, "select id, postid, timestamp,content_type,length(image) as size, public, publicUntilTstamp from images where user=?", {a.getUser(req)});
+      lsqw.queryJ(res, "select images.id, postid, images.tstamp,content_type,length(image) as size, public, posts.publicUntilTstamp from images,posts where postId = posts.id and user=?", {a.getUser(req)});
     });  
 
     svr.Post("/logout", [&lsqw, a](const httplib::Request &req, httplib::Response &res) mutable {
       if(a.check(req)) {
-        lsqw.addValue({{"action", "logout"}, {"user", a.getUser(req)}, {"ip", req.remote_addr}, {"tstamp", time(0)}}, "log");
+        lsqw.addValue({{"action", "logout"}, {"user", a.getUser(req)}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
         a.dropSession(req);
         res.set_header("Set-Cookie",
                        "session="+a.getSessionID(req)+"; SameSite=Strict; Path=/; Max-Age=0");
@@ -538,7 +580,7 @@ int main(int argc, char**argv)
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");
         }
-        lsqw.queryJ(res, "select id, postId, user,timestamp,content_type,length(image) as size, public,ip from images", {});
+        lsqw.queryJ(res, "select images.id, postId, user,tstamp,content_type,length(image) as size, images.public, ip from images,posts where posts.id=images.postId", {});
       });
 
       svr.Get("/all-users", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
@@ -598,7 +640,7 @@ int main(int argc, char**argv)
       if(disabled) {
         lsqw.query("delete from sessions where user=?", {user});
       }
-      lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", a.getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
     });
 
     svr.Post("/change-password/?", [&lsqw, &u, a](const auto& req, auto& res) {
@@ -618,7 +660,7 @@ int main(int argc, char**argv)
         throw std::runtime_error("Not admin");
       string session = req.matches[1];
       lsqw.query("delete from sessions where id=?", {session});
-      lsqw.addValue({{"action", "kill-session"}, {"session", session}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "kill-session"}, {"ip", a.getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
     });
 
     svr.Post("/del-user/([^/]+)", [&lsqw, a, &u](const auto& req, auto& res) {
@@ -627,7 +669,7 @@ int main(int argc, char**argv)
       string user = req.matches[1];
       u.delUser(user);
 
-      lsqw.addValue({{"action", "del-user"}, {"user", user}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "del-user"}, {"ip", a.getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
     });
 
     

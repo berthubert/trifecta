@@ -73,6 +73,10 @@ div#content {
 
 #paste {
     grid-area: paste;
+    border-width:3px;
+    border-style:dashed;
+    border-color:#FF0000;
+    padding: 0.5em;
 }
 
 #imagelist {

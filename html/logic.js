@@ -115,6 +115,7 @@ function doDeleteImage(f, imageid)
                 f.images = f.images.filter(function(item) {
                     return item.id !== imageid;
                 })
+                getMyImageList(f);
             }
         });
 }
@@ -138,16 +139,18 @@ function doDelUser(f, user)
 }
 
 
-function doChangePublic(f, imageid, el)
+function doChangePublic(f, postid, el)
 {
     let val = el.checked ? "1" : "0";
     el.disabled = true; // disable while transaction is running
     
-    fetch("set-image-public/"+imageid+"/"+val, {method: "POST"}).then(function(res){
+    fetch("set-post-public/"+postid+"/"+val, {method: "POST"}).then(function(res){
         el.disabled = false;
         
-        if(res.ok)
-            el.checked = !el.checked; 
+        if(res.ok) {
+            el.checked = !el.checked;
+            getMyImageList(f);
+        }
     });
 }
 
@@ -210,6 +213,7 @@ function getImageFromPaste(f, e)
                             const url = new URL(window.location.href);
                             url.searchParams.set("p", data.postId); 
                             history.pushState({}, "", url);
+                            getMyImageList(f);
                         });
                     } else {
                         console.error('Error uploading file:', response.statusText);
