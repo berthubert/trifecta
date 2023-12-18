@@ -66,6 +66,13 @@ static int64_t getRandom63()
   return dist(generator);
 }
 
+class AuthException : public std::runtime_error
+{
+public:
+  AuthException(const char *m) : std::runtime_error(m) {}
+};
+
+
 struct Users
 {
   Users(LockedSqw& lsqw) : d_lsqw(lsqw)
@@ -171,7 +178,7 @@ struct AuthReqs
     auto cookies = getCookies(req.get_header_value("Cookie"));
     auto siter = cookies.find("session");
     if(siter == cookies.end()) {
-      throw std::runtime_error("No session cookie");
+      throw AuthException("No session cookie");
     }
     return siter->second;
   }
@@ -235,6 +242,8 @@ void checkImageOwnership(LockedSqw& lsqw, Users& u, std::string& user, std::stri
   }
 }
 
+
+
 int main(int argc, char**argv)
 {
   argparse::ArgumentParser args("serv");
@@ -285,17 +294,20 @@ int main(int argc, char**argv)
   
   svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
     string reason;
+    res.status = 500;
     try {
       std::rethrow_exception(ep);
+    } catch (AuthException &e) {
+      res.status = 403;
+      reason = fmt::format("Authentication Error: {}", e.what());
     } catch (std::exception &e) {
       reason = fmt::format("An error occurred: {}", e.what());
     } catch (...) { 
       reason = "An unknown error occurred";
     }
-    cout<<req.path<<": 500 created for "<<reason<<endl;
+    cout<<req.path<<": "<<res.status<<" created for "<<reason<<endl;
     string html = fmt::format("<html><body><h1>Error</h1>{}</body></html>", reason);
     res.set_content(html, "text/html");
-    res.status = 500;
   });
   
   svr.set_mount_point("/", args.get<string>("html-dir"));
@@ -559,7 +571,7 @@ int main(int argc, char**argv)
     
     svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       if(!a.check(req)) {
-        throw std::runtime_error("Not logged-in");
+        throw AuthException("Not logged-in");
       }
       lsqw.queryJ(res, "select images.id, postid, images.tstamp,content_type,length(image) as size, public, posts.publicUntilTstamp from images,posts where postId = posts.id and user=?", {a.getUser(req)});
     });  
