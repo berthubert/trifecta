@@ -233,9 +233,9 @@ function doCreateUser(el, f)
     let user =el[0].value;
     let pass1 = el[1].value;
     let pass2 = el[2].value;
-    f.create_feedback ="";
+    f.message2user = "";
     if(pass1 != pass2) {
-        f.create_feedback="<font color='#ff0000'>Passwords do not match</font>";
+        f.message2user="<span class='error'>Passwords do not match</span>";
         return;
     }
     
@@ -244,14 +244,14 @@ function doCreateUser(el, f)
             if(response.ok) {
                 response.json().then(data => {
                     if(data.ok) {
-                        f.create_feedback="User created";
+                        f.message2user="User created";
                         getUserList(f);
                     }
                     else
-                        f.create_feedback=data.message;
+                        f.message2user=data.message;
                 });
             }
             else
-                f.create_feedback="Error sending creation request";
+                f.message2user="Error sending creation request";
         });
 }

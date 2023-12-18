@@ -13,9 +13,9 @@
   <div x-data="{ login: '', 
                  user: '', 
                  users: [],
+                 message2user: '',
                  sessions: [],
-                 loggedon: false, 
-                 create_feedback: '',
+                 loggedon: false,
                  images: []
 }" x-init="getLoginStatus($data);getUserList($data);getImageList($data); getSessionList($data);"
     @paste.window="getImage($data, $event)">
@@ -45,6 +45,11 @@
     </header>
 
     <div id="content">
+      <div id="userfeedback">
+        <span x-text="message2user"></span>
+      </div>
+
+
       <h2>Create new user</h2>
       <template x-if="loggedon">
         <form @submit.prevent="doCreateUser($el, $data)">
@@ -72,12 +77,13 @@
               <td><input type="password" id="password2" name="password2" required></td>
             </tr>
             <tr>
-              <td> <button type="submit">Create</button></td>
-              <td x-html="create_feedback"></td>
+              <td colspan="2"><button type="submit">Create</button></td>
             </tr>
           </table>
         </form>
       </template>
+
+
       <div id="userlist">
         <h2>All users</h2>
         <table>

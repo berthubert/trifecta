@@ -1,11 +1,6 @@
 :root {
-    /* Palette URL: http://paletton.com/#uid=5420K0kllllk3PDkFuDm0c2mC3O */
-    --color-primary-0: #363377;
     --color-primary-1: #9FEFB0;
-    --color-primary-2: #514CAA;
-    --color-primary-3: #1E1B43;
-    --color-primary-4: #090815;
-
+    
 
     --color-gray-50: #FAFAFA;
     --color-gray-100: #F5F5F5;
@@ -29,6 +24,8 @@
     --clr-btn-surface: var(--color-gray-400);
     --clr-btn-surface-hover: var(--color-gray-500);
     --clr-btn-surface-text: var(--color-primary-4);
+
+    --clr-txt-error: #F00;
 
     --size-xxs: 0.2em;
     --size-xs: 0.5em;
@@ -169,4 +166,8 @@ button:hover {
 }
 .deleteicon:hover {
     cursor: pointer;
+}
+
+.error {
+    color: var(--clr-txt-error);
 }
