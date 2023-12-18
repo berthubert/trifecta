@@ -161,3 +161,12 @@ button:hover {
     cursor: pointer;
     background-color: var(--clr-btn-surface-hover);
 }
+
+
+.deleteicon {
+    content: url(svg/delete.svg);
+    border: 0px;
+}
+.deleteicon:hover {
+    cursor: pointer;
+}
