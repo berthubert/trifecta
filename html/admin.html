@@ -96,12 +96,9 @@
               <td><input @click.prevent="doChangeUserDisabled($data, u.user, $el)" type="checkbox"
                   x-bind:checked="u.disabled" />
               </td>
-
-              <td
-                x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return "";">
-              </td>
+              <td x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return "></td>
               <td x-text="u.email"></td>
-              <td><a href="#" @click.prevent="doDelUser($data, u.user)">X</a></td>
+              <td class="deleteicon" @click.prevent="doDelUser($data, u.user)"></td>
             </tr>
           </template>
         </table>
@@ -123,12 +120,9 @@
               <td x-text="s.id"></td>
               <td x-text="s.user"></td>
               <td x-text="s.ip"></td>
-              <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return "";">
-              </td>
-              <td
-                x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return "";">
-              </td>
-              <td><a href="#" @click.prevent="doKillSession($data, s.id)">X</a></td>
+              <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return "></td>
+              <td x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return "></td>
+              <td class="deleteicon" @click.prevent="doKillSession($data, s.id)"></td>
             </tr>
           </template>
         </table>
@@ -158,8 +152,6 @@
               <td x-text="g.size"></td>
               <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox" x-bind:checked="g.public" />
               </td>
-
-
               <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
             </tr>
           </template>
