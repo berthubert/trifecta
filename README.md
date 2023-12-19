@@ -1,6 +1,6 @@
 # trifecta
-A simple image shring site, built with a combination of modern c++, database
-and web technologies
+A simple image sharing site, built with a combination of modern c++, database
+and web technologies. Intended to both be useful and make some points.
 
 # Goals
 
@@ -8,8 +8,11 @@ and web technologies
    * Using a non-bloated minimal framework (alpine.js)
  * Showcase modern C++ and build tools (Meson)
    * A Rust version of the backend is very welcome!
+   * A Go version of the backend is very welcome!
  * Show how you can build things without 200 dependencies
  * Show you can do so self-contained without tons of infrastructure
+ * Build something that is extremely robust and secure and does not need
+   monthly updates.
  * Still get high-end features
  * Actually get an image sharing site for your friends/company
  * Be a template for other projects
@@ -35,7 +38,11 @@ Both images and posts can be public or not.
 # Known problems
 
  * You can only paste files right now, not drag and drop
- * "Public"/non-public is not yet implemented for posts, only for images
+ * UI is clunky
+ * You can't yet change your password
+ * Login emails not yet implemented
+ * Security is probably not yet where it should be
+ * The code is still a mess and not yet "education clean"
 
 # Building
 Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
@@ -87,8 +94,10 @@ location /trifecta/ {
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
         add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;" always;
 }
-
 ```
 
 # Inspiration
 The SUSE past-o-o pastebin: https://github.com/openSUSE/paste-o-o
+
+cottow's 6paster: https://github.com/cottow/6paster 
+
