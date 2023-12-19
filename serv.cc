@@ -93,8 +93,11 @@ struct Users
 bool Users::checkPassword(const std::string& user, const std::string& password) const
 {
   auto res = d_lsqw.query("select pwhash, caps from users where user=? and disabled=0", {user});
-  if(res.empty())
+  if(res.empty()) {
+    cout<<"No such user '"<< user << "'" <<endl;
     return false;
+  }
+  //  cout<<"Password: '"<<password<<"'\n";
   return bcrypt::validatePassword(password, get<string>(res[0]["pwhash"]));
 }
 
@@ -231,9 +234,23 @@ void checkImageOwnership(LockedSqw& lsqw, Users& u, std::string& user, std::stri
   if(!u.userHasCap(user, "admin")) {
     auto check = lsqw.query("select user from images, posts where images.postId = posts.id and images.id=? and user=?", {imgid, user});
     if(check.empty())
-      throw std::runtime_error("Can't touch image from post that is not yours ("+user+")");
+      throw std::runtime_error("Can't touch image from post that is not yours (user '"+user+"')");
   }
 }
+
+bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::string& imgid)
+{
+  try {
+    checkImageOwnership(lsqw, u, user, imgid);
+  }
+  catch(std::exception& e) {
+    cout<<e.what()<<endl;
+    return false;
+  }
+  return true;
+}
+
+
 
 int trifectaMain(int argc, const char**argv)
 {
@@ -356,7 +373,7 @@ int trifectaMain(int argc, const char**argv)
     res.set_content(j.dump(), "application/json");
   });
   
-  svr.Get("/i/:imgid", [&lsqw, a](const auto& req, auto& res) {
+  svr.Get("/i/:imgid", [&lsqw, a, &u](const auto& req, auto& res) {
     string imgid = req.path_params.at("imgid");
     string user;
     res.status = 404;
@@ -365,18 +382,26 @@ int trifectaMain(int argc, const char**argv)
       user = a.getUser(req);
     }catch(...){}
     
-    auto results = lsqw.query("select image,content_type, posts.publicUntilTstamp,user from images,posts where images.id=? and posts.id = images.postId and (public=1 or user=?) ", {imgid, user});
-
+    auto results = lsqw.query("select image,public,content_type, posts.publicUntilTstamp, posts.user from images,posts where images.id=? and posts.id = images.postId ", {imgid});
+    
     if(results.size() != 1) {
-      lsqw.addValue({{"action", "view-failed"} , {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
+      lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "no such image"}}, "log");
       return;
     }
 
+    
     // if not owned by user, need to check publicUntilTstamp
-    if(get<string>(results[0]["user"]) != user) {
+    if(!checkImageOwnershipBool(lsqw, u, user, imgid)) {
+      if(!get<int64_t>(results[0]["public"])) {
+        lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "not public"}}, "log");
+        return;
+      }
+      
       if(auto ptr = get_if<int64_t>(&results[0]["publicUntilTstamp"]) ) {
-        if(*ptr && *ptr < time(0))
+        if(*ptr && *ptr < time(0)) {
+          lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "no longer public"}}, "log");
           return;
+        }
       }
     }
     
@@ -385,7 +410,7 @@ int trifectaMain(int argc, const char**argv)
     res.set_content(s, get<string>(results[0]["content_type"]));
     res.status = 200;
 
-    lsqw.addValue({{"action", "view"} , {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
+    lsqw.addValue({{"action", "view"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
   });
 
   svr.Get("/status", [&lsqw, a, &u](const httplib::Request &req, httplib::Response &res) {
@@ -605,7 +630,6 @@ int trifectaMain(int argc, const char**argv)
 
         string password1, user;
         for(auto&& [name, f] : req.files) {
-          cout << name<<" " << f.content << endl;
           if(name=="password1")
             password1 = f.content;
           if(name=="user")

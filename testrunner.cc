@@ -43,7 +43,8 @@ namespace {
   {
     TrifectaServer() {
       std::thread t1([]() {
-        const char* argv[] = {"./trifecta", "", "-p", "9999",
+        unlink("testrunner.sqlite");
+        const char* argv[] = {"./trifecta", "testrunner.sqlite", "-p", "9999",
           "--admin-password=admin1234",
           "--local-address=127.0.0.1"};
         trifectaMain(6, argv);
@@ -53,11 +54,11 @@ namespace {
       usleep(250000);
     }
 
-    httplib::Headers doLogin()
+    httplib::Headers doLogin(const string& user = "admin", const string& password="admin1234")
     {
       httplib::Client cli("127.0.0.1", 9999);
-      
-      auto res = cli.Post("/login", "user=admin&password=admin1234", "application/x-www-form-urlencoded");
+      // yeah this is insecure, but it is also our test framework
+      auto res = cli.Post("/login", "user="+ user +"&password="+password, "application/x-www-form-urlencoded");
       if(res == nullptr)
         throw std::runtime_error("Can't connect for login");
     
@@ -87,6 +88,7 @@ namespace {
     
     ~TrifectaServer()
     {
+      usleep(1100000); // so the sqlite stuff get synched
       /*
       cout<<"Destructor called"<<endl;
       auto headers = doLogin();
@@ -99,7 +101,7 @@ namespace {
   } g_tfs;
 }
 
-TEST_CASE("web login") {
+TEST_CASE("basic web tests") {
 
   httplib::Client cli("127.0.0.1", 9999);
 
@@ -197,9 +199,75 @@ TEST_CASE("web login") {
   
   j = nlohmann::json::parse(res->body);
   CHECK(j["login"]==false);
+}
 
-  //// login again, so we can stop the server
+
+TEST_CASE("web visibility tests") {
+  httplib::Client cli("127.0.0.1", 9999);
+
+  auto adminSession = g_tfs.doLogin();
+
+  // create user piet
+  httplib::MultipartFormDataItems items2 = {
+    { "user", "piet", "user" },
+    { "password1", "piet123piet", "password1" }
+  };
+
+  auto res = cli.Post("/create-user", adminSession, items2);
+  REQUIRE(res != 0);
+
+  auto pietSession = g_tfs.doLogin("piet", "piet123piet");
+  res = cli.Get("/status", pietSession);
+  REQUIRE(res != 0);
   
-  headers = g_tfs.doLogin();
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["admin"]==false);
+  CHECK(j["user"]=="piet");
+  CHECK(j["login"]==true);
 
+  
+  httplib::MultipartFormDataItems items = {
+    { "file", "test content 123", "hello2.png", "image/png" }
+  };
+
+  res = cli.Post("/upload", pietSession, items);
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["postId"] != "");
+
+  string upload1 = j["id"];
+  string postId = j["postId"];
+
+  res = cli.Get("/i/"+upload1); // anon access
+  REQUIRE(res != 0); CHECK(res->body ==items[0].content);
+
+  res = cli.Get("/i/"+upload1, pietSession); // with cookie
+  REQUIRE(res != 0); CHECK(res->body ==items[0].content);
+
+  res = cli.Get("/i/"+upload1, adminSession); // with admin cookie
+  REQUIRE(res != 0); CHECK(res->body ==items[0].content);
+
+  // make post non-public
+  res = cli.Post("/set-post-public/"+postId+"/0", pietSession);
+  REQUIRE(res != 0);
+
+  res = cli.Get("/i/"+upload1); // no cookie
+  REQUIRE(res != 0); CHECK(res->status == 404);
+  
+  res = cli.Get("/i/"+upload1, pietSession); // with cookie
+  REQUIRE(res != 0); CHECK(res->body ==items[0].content);
+
+
+  res = cli.Get("/i/"+upload1, adminSession); // admin
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+
+  // admin makes post public
+  res = cli.Post("/set-post-public/"+postId+"/1", adminSession);
+  REQUIRE(res != 0);
+
+  res = cli.Get("/i/"+upload1); // no cookie
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  
 }
