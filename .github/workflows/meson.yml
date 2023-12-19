@@ -37,6 +37,9 @@ jobs:
       # Build your program with the given configuration
       run: meson compile -C ${{github.workspace}}/build 
 
+    - name: Test
+      run: ${{github.workspace}}/build/testrunner 
+
     #- name: Test
     #  working-directory: ${{github.workspace}}/build
     #  # Execute tests defined by the CMake configuration.  
