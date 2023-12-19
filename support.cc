@@ -49,8 +49,6 @@ string makeShortID(int64_t id)
                                     new StringSink(encoded)
                                     ) // Base64Encoder
                   ); // StringSource
-  
-  cout << encoded << endl;
   return encoded;
 }
  

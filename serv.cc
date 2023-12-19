@@ -235,7 +235,7 @@ void checkImageOwnership(LockedSqw& lsqw, Users& u, std::string& user, std::stri
   }
 }
 
-int main(int argc, char**argv)
+int trifectaMain(int argc, const char**argv)
 {
   argparse::ArgumentParser args("serv");
 
@@ -307,10 +307,7 @@ int main(int argc, char**argv)
 
   svr.Post("/login", [&lsqw, &sessions, &u, &a](const httplib::Request &req, httplib::Response &res) {
     auto fields=getFormFields(req.body);
-    for(const auto& f : fields) {
-      fmt::print("'{}'\t'{}'\n", f.first, f.second);
-    }
-
+    
     string user = fields["user"];
     string password = fields["password"];
     nlohmann::json j;
@@ -347,8 +344,9 @@ int main(int argc, char**argv)
 
   svr.Get("/getPost/:postid", [&lsqw, a](const auto& req, auto& res) {
     string postid = req.path_params.at("postid");
-    // think about visible here, and admin, and owner XXX
-    auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
+
+    // XXX admin an owner should be able to see post, even if not public
+    auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id and public=1", {postid});
     nlohmann::json j;
     j["images"]=packResultsJson(images);
 
@@ -399,9 +397,10 @@ int main(int argc, char**argv)
     catch(exception& e) {
       cout<<"On /status, could not find a session"<<endl;
     }
-    for(auto&& [k, v] : req.headers) {
+    /*    for(auto&& [k, v] : req.headers) {
       cout<< k <<": "<<v<<endl;
     }
+    */
     j["login"] = !user.empty();
     j["admin"] = false;
     if(!user.empty()) {
@@ -431,6 +430,7 @@ int main(int argc, char**argv)
         }
       }
       if(postId.empty()) {
+        cout<<"Creating a post"<<endl;
         postId = makeShortID(getRandom63());
         lsqw.addValue({{"id", postId}, {"user", user}, {"stamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
       }
@@ -672,7 +672,15 @@ int main(int argc, char**argv)
       lsqw.addValue({{"action", "del-user"}, {"ip", a.getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
     });
 
-    
+    svr.Post("/stop" , [&lsqw, a, &svr](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Not admin");
+      lsqw.addValue({{"action", "stop"}, {"ip", a.getIP(req)}, {"user", a.getUser(req)}, {"tstamp", time(0)}}, "log");
+
+      cout<<"Attempting to stop server"<<endl;
+      svr.stop();
+
+    });
   }
 
   string laddr = args.get<string>("local-address");
@@ -688,4 +696,6 @@ int main(int argc, char**argv)
     cout<<"Error launching server: "<<strerror(errno)<<endl;
     return EXIT_FAILURE;
   }
+  cout<<"Stopping"<<endl;
+  return 0;
 }

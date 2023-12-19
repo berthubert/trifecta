@@ -11,11 +11,12 @@ cryptopp_dep=dependency('libcrypto++')
 bcryptcpp_dep = dependency('bcryptcpp')
 argparse_dep = dependency('argparse', version: '>=3')
 
-executable('serv', 'serv.cc', 'support.cc',
+
+executable('trifecta', 'trifecta.cc', 'serv.cc', 'support.cc',
 	dependencies: [sqlitedep, json_dep, fmt_dep, cpphttplib, sqlitewriter_dep,
 	cryptopp_dep, bcryptcpp_dep, argparse_dep])
 
 
-executable('testrunner', 'testrunner.cc', 'support.cc',
-	dependencies: [sqlitedep, json_dep, sqlitewriter_dep, doctest_dep, cryptopp_dep])
+executable('testrunner', 'testrunner.cc', 'support.cc', 'serv.cc',
+	dependencies: [sqlitedep, json_dep, fmt_dep, bcryptcpp_dep, argparse_dep, sqlitewriter_dep, cpphttplib, doctest_dep, cryptopp_dep])
 
