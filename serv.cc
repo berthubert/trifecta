@@ -240,9 +240,7 @@ void checkImageOwnership(LockedSqw& lsqw, Users& u, std::string& user, std::stri
 
 bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::string& imgid)
 {
-  try {
-    checkImageOwnership(lsqw, u, user, imgid);
-  }
+  try {    checkImageOwnership(lsqw, u, user, imgid);  }
   catch(std::exception& e) {
     cout<<e.what()<<endl;
     return false;
@@ -503,7 +501,7 @@ int trifectaMain(int argc, const char**argv)
       lsqw.addValue({{"action", "delete-image"}, {"ip", a.getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
 
-    svr.Post("/set-post-title/(.+)", [&lsqw, a](const auto& req, auto& res) {
+    svr.Post("/set-post-title/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't set post title if not logged in");
       string postid = req.matches[1];
@@ -515,6 +513,13 @@ int trifectaMain(int argc, const char**argv)
       }
       string user = a.getUser(req);
       cout<<"Attemping to set title for post "<< postid<<" for user " << user <<" to " << title << endl;
+      auto rows = lsqw.query("select user from posts where id=?", {postid});
+      if(rows.size() != 1)
+        throw std::runtime_error("Attempting to change title for post that does not exist");
+
+      if(get<string>(rows[0]["user"]) != user && !u.userHasCap(user, "admin"))
+         throw std::runtime_error("Attempting to change title for post that is not yours and you are not admin");
+      
       lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
       lsqw.addValue({{"action", "set-post-title"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
     });

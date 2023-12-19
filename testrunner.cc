@@ -268,6 +268,84 @@ TEST_CASE("web visibility tests") {
 
   res = cli.Get("/i/"+upload1); // no cookie
   REQUIRE(res != 0); CHECK(res->body == items[0].content);
+}
 
+
+TEST_CASE("web abuse tests") {
+  httplib::Client cli("127.0.0.1", 9999);
+
+  auto adminSession = g_tfs.doLogin();
+
+  // create user john
+  httplib::MultipartFormDataItems items1 = {
+    { "user", "john", "user" },
+    { "password1", "john123john", "password1" }
+  };
+
+  auto res = cli.Post("/create-user", adminSession, items1);
+  REQUIRE(res != 0);
+
+  auto johnSession = g_tfs.doLogin(items1[0].content, items1[1].content);
+
+  // create user barak
+  httplib::MultipartFormDataItems items2 = {
+    { "user", "barak", "user" },
+    { "password1", "barak123barak", "password1" }
+  };
+
+  res = cli.Post("/create-user", adminSession, items2);
+  REQUIRE(res != 0);
+
+  auto barakSession = g_tfs.doLogin(items2[0].content, items2[1].content);
+
+  // user john is going to upload a photo
+  httplib::MultipartFormDataItems items3 = {
+    { "file", "test content 123", "hello2.png", "image/png" }
+  };
+
+  res = cli.Post("/upload", johnSession, items3);
+  REQUIRE(res != 0);
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["postId"] != "");
+
+  string upload1 = j["id"];
+  string postId = j["postId"];
+
+  // Now barak is going to try to add something to john's post
+
+  httplib::MultipartFormDataItems items4 = {
+    { "file", "123 test content", "hello2.png", "image/png" },
+    {"postId", postId, "postId"}
+  };
+
+  res = cli.Post("/upload", barakSession, items4);
+  REQUIRE(res != 0);
+
+  CHECK(res->status == 500);
+
+  // now barak is going to set the title of john's post
   
+  res = cli.Post("/set-post-title/"+postId, barakSession,
+                 httplib::MultipartFormDataItems({{"title", "this is the title", "title"}}));
+
+  REQUIRE(res);
+  CHECK(res->status == 500);
+
+  // now barak is going to set the caption of john's image
+  
+  res = cli.Post("/set-image-caption/"+upload1, barakSession,
+                 httplib::MultipartFormDataItems({{"caption", "this is the caption", "caption"}}));
+
+  REQUIRE(res);
+  CHECK(res->status == 500);
+
+
+  // now barak is going to delete john's image
+  
+  res = cli.Post("/delete-image/"+upload1, barakSession);
+
+  REQUIRE(res);
+  CHECK(res->status == 500);
+
+
 }
