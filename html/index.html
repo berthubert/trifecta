@@ -106,7 +106,7 @@
                 </td>
                 <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
                 </td>
-                <td><a x-bind:href="'index.html?i='+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+                <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
                 </td>
                 <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">              
                 </td>
