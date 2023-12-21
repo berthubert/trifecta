@@ -28,6 +28,8 @@
     --clr-table-row-even-bg: var(--color-gray-400);
     --clr-header-bg: var(--color-primary-3);
     --clr-header-text: var(--color-primary-5);
+    --clr-footer-bg: var(--color-primary-4);
+    --clr-footer-text: var(--color-gray-50);
 
     --clr-btn-surface: var(--color-gray-400);
     --clr-btn-surface-hover: var(--color-gray-500);
@@ -39,6 +41,7 @@
     --size-xs: 0.5em;
     --size-s: 0.8em;
     --size-m: 1em;
+    --size-l: 2em;
 
     --rad-small: 0.5em;
 }
@@ -47,7 +50,8 @@ body,
 div,
 header,
 h1, h2,
-img
+img,
+footer
 {
     margin: 0;
     padding: 0;
@@ -57,6 +61,10 @@ img
 body {
     font-family: Open Sans, Roboto, sans-serif;
     color: var(--clr-primary-fg);
+}
+
+a {
+    text-decoration: underline dashed;
 }
 
 div#content {
@@ -74,8 +82,6 @@ div#content {
     padding: var(--size-xs);
 }
 
-#imagelist {
-}
 
 #posts {
     margin-left: auto;
@@ -98,6 +104,18 @@ h1>a {
     text-decoration: none;
     color: var(--clr-header-text);
 }
+
+footer {
+    margin-top: var(--size-l);
+    background-color: var(--clr-footer-bg);
+    color: var(--clr-footer-text);
+    text-align: center;
+}
+footer a {
+    color: var(--color-gray-50);
+}
+
+
 
 header {
     background-color: var(--clr-header-bg);
