@@ -41,7 +41,9 @@ function getLoginStatus(f)
 function doLogout(f)
 {
     fetch("logout", {method: "POST"})
-        .then(function(res){ getLoginStatus(f);});
+        .then(function(res){ getLoginStatus(f);
+                             f.myimages=[];
+                           });
 }
 
 function getImageList(f)
@@ -88,6 +90,7 @@ function doLogin(el, f)
         if(data.ok) {
             f.message2user="";
             getLoginStatus(f);
+            getMyImageList(f);
         }
         else
             f.message2user = data.message; 
