@@ -67,50 +67,32 @@ a {
     text-decoration: underline dashed;
 }
 
-div#content {
-    padding: var(--size-xs);
-}
-
-#userfeedback>span {
-    font-weight: bold;
-}
-
-#paste {
-    border-width: var(--size-xxs);
-    border-style:dashed;
-    border-color: var(--color-primary-5);
-    padding: var(--size-xs);
-}
-
-
-#posts {
-    margin-left: auto;
-    margin-right: auto;
-}
-
-#posts>div>img {
-    border: 1px solid;
-    border-color: var(--color-gray-400);
-    max-width: 100%;
-    display: block;
-    margin: auto;
-}
-
-h2:nth-child(1) {
-    padding-top: 1em;
-}
-
 h1>a {
     text-decoration: none;
     color: var(--clr-header-text);
 }
 
+div#container {
+    height: 100dvh;
+    display: grid;
+    grid-template-rows:auto 1fr auto;
+    grid-template-areas: 
+    "header"
+    "content"
+    "footer";
+}
+
+
+
 footer {
+    padding: var(--size-xxs);
     margin-top: var(--size-l);
     background-color: var(--clr-footer-bg);
     color: var(--clr-footer-text);
     text-align: center;
+    grid-area: footer;
 }
+
 footer a {
     color: var(--color-gray-50);
 }
@@ -118,6 +100,7 @@ footer a {
 
 
 header {
+    grid-area: header;
     background-color: var(--clr-header-bg);
     color: var(--clr-header-text);
     display: flex;
@@ -129,7 +112,58 @@ header>div {
     margin-left: auto;
 }
 
+
+div#content {
+    grid-area: content;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    padding: var(--size-xs);
+}
+
+#userfeedback>span {
+    font-weight: bold;
+}
+
+#paste {
+    min-width: 70%;
+    background-color: var(--color-gray-200);
+    border-width: var(--size-xxs);
+    border-style:dashed;
+    border-color: var(--color-primary-5);
+    padding: var(--size-xs);
+}
+
+
+#posts {
+    min-width: 70%;
+    margin-left: auto;
+    margin-right: auto;
+    display:flex;
+    flex-direction: column;
+}
+
+#posts img {
+    border: 1px solid;
+    border-color: var(--color-gray-400);
+    max-width: 100%;
+    display: block;
+    margin: auto;
+}
+
+#posts > div {
+    border-bottom: 2px dashed var(--color-primary-1);
+    padding-bottom: var(--size-m);
+    margin-bottom: var(--size-m);
+}
+
+#imagelist {
+    margin-top: var(--size-l);
+}
+
+
 table {
+    min-width: 70%;
     border: 1px solid var(--clr-primary-fg);
     border-collapse: collapse;
 }
@@ -138,6 +172,7 @@ th,
 td {
     border: 1px solid var(--clr-primary-fg);
     padding: var(--size-xs);
+    vertical-align: top;
 }
 
 th {
