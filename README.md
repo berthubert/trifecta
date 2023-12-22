@@ -61,7 +61,7 @@ Then run:
 ```
 meson setup build
 meson compile -C build
-./build/serv --admin-password=thinkofsomething
+./build/trifecta --admin-password=thinkofsomething
 ```
 
 And you should be in business. It prints out the URL on which you can

@@ -23,7 +23,7 @@
                  get canDelImage() { return( this.loggedon && this.postid != '');},
                  get canShowImage() { return( this.images.length > 0);},
                  get showPasteImage() { return ( this.loggedon);} 
-}" x-init="getLoginStatus($data);getMyImageList($data);" >
+}" x-init="getLoginStatus($data);getMyImageList($data);">
     <header>
       <h1><a href="./">Trifecta</a></h1>
 
@@ -56,21 +56,22 @@
       </div>
 
 
-      <div id="post">
+      <div id="posts">
         <h2 x-bind:contenteditable="can_touch_post ? true : false" x-text="postTitle"
           @keydown.enter.prevent="doSetPostTitle($data, $el)"></h2>
-        <div x-show="canShowImage">
-          <template x-for="g in images">
-            <div>
-              <img x-cloak x-bind:src="'i/'+g.id">
+
+        <template x-show="canShowImage" x-for="g in images">
+          <div>
+            <a x-bind:href="'i/'+g.id" alt=""><img x-cloak x-bind:src="'i/'+g.id"></a>
+            <div class="imagecontrols">
               <p x-bind:contenteditable="can_touch_post ? true:false"
                 @keydown="processCaptionKey($data, $el, $event, g.id)"
                 x-html="if(g.caption=='' && can_touch_post) return '...type a caption...'; else return g.caption;"
                 x-style="if(g.caption=='') return 'color: #cccccc;'; else return '';"></p>
               <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
             </div>
-          </template>
-        </div>
+          </div>
+        </template>
       </div>
 
       <div id="paste" x-show="showPasteImage" @paste="getImageFromPaste($data, $event)">
@@ -79,36 +80,37 @@
       </div>
 
 
-      <div x-show="loggedon" id="imagelist">
+      <div id="imagelist" x-show="loggedon">
         <h2>Your images</h2>
         <div>
           <table>
             <tr>
-              <th>Timestamp</th>
-              <th>ID</th>
               <th>Post</th>
+              <th>Pasted on</th>
+              <th>Paste ID</th>
               <th>Type</th>
               <th>Size</th>
-              <th>Public</th>
+
               <th>Until</th>
               <th>Thumbnail</th>
+              <th>Public</th>
               <th>Del</th>
             </tr>
             <template x-for="g in myimages">
               <tr>
+                <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
                 <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
                 <td x-text="g.id"></td>
-                <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
                 <td x-text="g.content_type"></td>
                 <td x-text="g.size"></td>
-                <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
-                    x-bind:checked="g.public" />
-                </td>
                 <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
                 </td>
                 <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
                 </td>
-                <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">              
+                <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
+                    x-bind:checked="g.public" />
+                </td>
+                <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">
                 </td>
               </tr>
             </template>
@@ -117,7 +119,10 @@
         <button @click="getMyImageList($data)">Refresh</button>
       </div>
     </div>
-  </div>
+    <footer>
+      <span>Learn more about Trifecta on <a href="https://github.com/berthubert/trifecta">github</a></span>
+    </footer>
+  </div> <!-- id=container -- Alphine div -->
 </body>
 
 </html>
