@@ -349,3 +349,33 @@ TEST_CASE("web abuse tests") {
 
 
 }
+
+TEST_CASE("web admin tests") {
+  httplib::Client cli("127.0.0.1", 9999);
+
+  auto adminSession = g_tfs.doLogin();
+
+  httplib::MultipartFormDataItems items = {
+    { "file", "test content 123213213", "hello3.png", "image/png" }
+  };
+
+  auto res = cli.Post("/upload", adminSession, items);
+  REQUIRE(res != 0);
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["postId"] != "");
+  string upload1 = j["id"];
+  
+  
+  res = cli.Get("/all-images", adminSession); 
+  REQUIRE(res != 0);
+
+  j = nlohmann::json::parse(res->body);
+
+  CHECK(j.size() > 0);
+  bool found=false;
+  for(const auto& item : j) {
+    if(item["id"]==upload1)
+      found=true;
+  }
+  CHECK(found == true);
+}
