@@ -10,7 +10,7 @@
 </head>
 
 <body>
-  <div x-data="{ login: '', 
+  <div id="container" x-data="{ login: '', 
                  user: '', 
                  users: [],
                  message2user: '',
@@ -102,7 +102,9 @@
               <td><input @click.prevent="doChangeUserDisabled($data, u.user, $el)" type="checkbox"
                   x-bind:checked="u.disabled" />
               </td>
-              <td x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return "></td>
+              <td
+                x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return ">
+              </td>
               <td x-text="u.email"></td>
               <td class="deleteicon" @click.prevent="doDelUser($data, u.user)"></td>
             </tr>
@@ -126,8 +128,10 @@
               <td x-text="s.id"></td>
               <td x-text="s.user"></td>
               <td x-text="s.ip"></td>
-              <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return "></td>
-              <td x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return "></td>
+              <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return ">
+              </td>
+              <td x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return ">
+              </td>
               <td class="deleteicon" @click.prevent="doKillSession($data, s.id)"></td>
             </tr>
           </template>
@@ -165,7 +169,10 @@
         <button @click="getImageList($data)">Refresh</button>
       </div>
     </div>
-  </div>
+    <footer>
+      <span>Learn more about Trifecta on <a href="https://github.com/berthubert/trifecta">github</a></span>
+    </footer>
+  </div> <!-- id=container -- Alphine div -->
 </body>
 
 </html>
