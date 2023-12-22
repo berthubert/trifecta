@@ -179,6 +179,7 @@ struct AuthReqs
     return siter->second;
   }
   bool check(const httplib::Request &req) const
+  try
   {
     string user = getUser(req);
     for(const auto& a : auths) {
@@ -189,13 +190,17 @@ struct AuthReqs
     }
     return true;
   }
+  catch(std::exception& e) {
+    cout<<"Could not check user capabilities: "<<e.what()<<endl;
+    return false;
+  }
 
   void dropSession(const httplib::Request &req) 
   {
     d_sessions.dropSession(getSessionID(req));
   }
 
-  // XXXX should only trust LOCAL_ADDR if traffic is from a known and trusted proxy
+  // XXXX should only trust X-Real-IP if traffic is from a known and trusted proxy
   string getIP(const httplib::Request& req) const
   {
     if(req.has_header("X-Real-IP"))
@@ -589,7 +594,9 @@ int trifectaMain(int argc, const char**argv)
     
     svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       if(!a.check(req)) {
-        throw std::runtime_error("Not logged-in");
+        res.set_content("[]", "application/json");
+        return;
+        //        throw std::runtime_error("Not logged-in");
       }
       lsqw.queryJ(res, "select images.id, postid, images.tstamp,content_type,length(image) as size, public, posts.publicUntilTstamp from images,posts where postId = posts.id and user=?", {a.getUser(req)});
     });  
