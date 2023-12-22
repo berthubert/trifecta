@@ -85,29 +85,30 @@
         <div>
           <table>
             <tr>
-              <th>Timestamp</th>
-              <th>ID</th>
               <th>Post</th>
+              <th>Pasted on</th>
+              <th>Paste ID</th>
               <th>Type</th>
               <th>Size</th>
-              <th>Public</th>
+
               <th>Until</th>
               <th>Thumbnail</th>
+              <th>Public</th>
               <th>Del</th>
             </tr>
             <template x-for="g in myimages">
               <tr>
+                <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
                 <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
                 <td x-text="g.id"></td>
-                <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
                 <td x-text="g.content_type"></td>
                 <td x-text="g.size"></td>
-                <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
-                    x-bind:checked="g.public" />
-                </td>
                 <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
                 </td>
                 <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+                </td>
+                <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
+                    x-bind:checked="g.public" />
                 </td>
                 <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">
                 </td>
