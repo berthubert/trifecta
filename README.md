@@ -101,3 +101,5 @@ The SUSE past-o-o pastebin: https://github.com/openSUSE/paste-o-o
 
 cottow's 6paster: https://github.com/cottow/6paster 
 
+Project with similar aims, a webmail solution built on Go and a functional language called Elm:
+https://github.com/inbucket/inbucket
