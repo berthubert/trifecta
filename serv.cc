@@ -617,7 +617,7 @@ int trifectaMain(int argc, const char**argv)
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");
         }
-        lsqw.queryJ(res, "select images.id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId", {});
+        lsqw.queryJ(res, "select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId", {});
       });
 
       svr.Get("/all-users", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
