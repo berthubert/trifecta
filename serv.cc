@@ -107,7 +107,6 @@ void Users::createUser(const std::string& user, const std::string& password, con
   cout<<"Going to add user '"<<user<<"'"<<endl;
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
   d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
-
 }
 
 void Users::delUser(const std::string& user) 
@@ -214,7 +213,6 @@ struct AuthReqs
     return d_sessions.getUserForSession(getSessionID(req), agent, ip);
   }
 
-  
   Sessions& d_sessions;
   Users& d_users;
 };
@@ -369,7 +367,7 @@ int trifectaMain(int argc, const char**argv)
 
     // this needs to also implement the 'publicUntil' logic
     
-    auto post = lsqw.query("select user, public from posts where id=?", {postid});
+    auto post = lsqw.query("select user, public, publicUntilTstamp from posts where id=?", {postid});
     if(post.size() != 1) {
       j["images"] = nlohmann::json::array();
     }
@@ -400,7 +398,6 @@ int trifectaMain(int argc, const char**argv)
       lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "no such image"}}, "log");
       return;
     }
-
     
     // if not owned by user, need to check publicUntilTstamp
     if(!checkImageOwnershipBool(lsqw, u, user, imgid)) {
@@ -459,7 +456,6 @@ int trifectaMain(int argc, const char**argv)
       time_t tstamp = time(0);
       string postId = req.get_file_value("postId").content;
       if(postId.empty()) {
-        cout<<"Creating a post"<<endl;
         postId = makeShortID(getRandom63());
         lsqw.addValue({{"id", postId}, {"user", user}, {"stamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
       }
@@ -492,7 +488,6 @@ int trifectaMain(int argc, const char**argv)
         lsqw.addValue({{"action", "upload"} , {"user", a.getUser(req)}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", tstamp}}, "log");
       }
     });
-
     
     svr.Post("/delete-image/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
@@ -551,7 +546,6 @@ int trifectaMain(int argc, const char**argv)
       u.changePassword(user, pwfield.content);
     });
     
-    
     svr.Post("/set-post-public/([^/]+)/([01])", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't change public setting if not logged in");
@@ -564,8 +558,7 @@ int trifectaMain(int argc, const char**argv)
       lsqw.addValue({{"action", "change-post-public"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     });
 
-    
-    svr.Get("/can_touch_post/:postid", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
+    svr.Get("/can_touch_post/:postid", [&lsqw, a, &u](const httplib::Request &req, httplib::Response &res) {
       nlohmann::json j;
       string postid = req.path_params.at("postid");
 
@@ -575,21 +568,18 @@ int trifectaMain(int argc, const char**argv)
         if(a.check(req)) {
           string user = a.getUser(req);
           auto sqres = lsqw.query("select count(1) as c from posts where id=? and user=?", {postid, user});
-          if(get<int64_t>(sqres[0]["c"]))
+          if(get<int64_t>(sqres[0]["c"]) || u.userHasCap(user, "admin"))
             j["can_touch_post"]=1;
         }
       }
       catch(exception&e) { cout<<"No session for checking access rights: "<<e.what()<<"\n";}
-      // now check if user is admin, and then also set to 1 XXX
       res.set_content(j.dump(), "application/json");
     });
-
     
     svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
-      if(!a.check(req)) {
+      if(!a.check(req)) { // saves a 5xx error
         res.set_content("[]", "application/json");
         return;
-        //        throw std::runtime_error("Not logged-in");
       }
       lsqw.queryJ(res, "select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {a.getUser(req)});
     });  
@@ -600,9 +590,9 @@ int trifectaMain(int argc, const char**argv)
         a.dropSession(req);
         res.set_header("Set-Cookie",
                        "session="+a.getSessionID(req)+"; SameSite=Strict; Path=/; Max-Age=0");
-
       }
     });
+    // ponder adding logout-everywhere
     
     {
       AuthSentinel as(a, "admin");
@@ -626,7 +616,6 @@ int trifectaMain(int argc, const char**argv)
         }
         lsqw.queryJ(res, "select * from sessions", {});
       });
-
       
       svr.Post("/create-user", [&lsqw, &sessions, &u, a](const httplib::Request &req, httplib::Response &res) {
         if(!a.check(req)) {
@@ -703,7 +692,6 @@ int trifectaMain(int argc, const char**argv)
 
       cout<<"Attempting to stop server"<<endl;
       svr.stop();
-
     });
   }
 
