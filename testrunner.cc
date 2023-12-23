@@ -23,12 +23,6 @@ TEST_CASE("cookie test") {
   CHECK(res["boeh"]=="bah");  
 }
 
-TEST_CASE("form parse test") {
-  auto res = getFormFields("user=ahu&password=Super123Secret");
-  CHECK(res.size() == 2);
-  CHECK(res["user"]=="ahu");
-  CHECK(res["password"]=="Super123Secret");
-}
 
 TEST_CASE("base64url id") {
   CHECK(makeShortID((1ULL<<62) - 132430)== "svr9_____z8");
@@ -57,8 +51,12 @@ namespace {
     httplib::Headers doLogin(const string& user = "admin", const string& password="admin1234")
     {
       httplib::Client cli("127.0.0.1", 9999);
-      // yeah this is insecure, but it is also our test framework
-      auto res = cli.Post("/login", "user="+ user +"&password="+password, "application/x-www-form-urlencoded");
+      httplib::MultipartFormDataItems items = {
+        { "user", user, "user"},
+        { "password", password, "password"},
+      };
+
+      auto res = cli.Post("/login", items);
       if(res == nullptr)
         throw std::runtime_error("Can't connect for login");
     

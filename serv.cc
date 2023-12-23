@@ -326,10 +326,8 @@ int trifectaMain(int argc, const char**argv)
   // anyone can do this
 
   svr.Post("/login", [&lsqw, &sessions, &u, &a](const httplib::Request &req, httplib::Response &res) {
-    auto fields=getFormFields(req.body);
-    
-    string user = fields["user"];
-    string password = fields["password"];
+    string user = req.get_file_value("user").content;
+    string password = req.get_file_value("password").content;
     nlohmann::json j;
     j["ok"]=0;
     if(u.checkPassword(user, password)) {

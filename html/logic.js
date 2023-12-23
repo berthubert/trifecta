@@ -83,7 +83,7 @@ function doSetPostTitle(f, el)
 
 function doLogin(el, f)
 {
-    const data = new URLSearchParams(new FormData(el));
+    const data = new FormData(el);
     fetch("login", {method: "POST", body: data})
     .then(response => response.json()).then(data => {
         if(data.ok) {
