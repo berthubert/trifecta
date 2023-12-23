@@ -21,7 +21,6 @@ function getLoginStatus(f)
         let p = a.searchParams.get("p");
         if(p != null) {
             f.postId = p;
-            console.log("Set postid");
             fetch('getPost/'+f.postId).then(response => response.json()).then(data => {
                 f.images = data.images;
                 f.postTitle = data.title;
@@ -77,7 +76,7 @@ function getMyImageList(f)
 function doSetPostTitle(f, el)
 {
     const formData = new FormData();
-    formData.append('title', el.innerText);
+    formData.append('title', el.value);
     
     fetch("set-post-title/"+f.postId, {method: "POST", body: formData});
 }
@@ -175,16 +174,10 @@ function doChangeUserDisabled(f, user, el)
 
 function processCaptionKey(f, el, e, imageid)
 {
-    if(el.textContent == "...type a caption...") {
-        el.style.color="#000000";
-        el.textContent="";
-    }
-    if(e.code=="Enter" && e.ctrlKey==true) {
-        const formData = new FormData();
-        formData.append('caption', el.innerHTML);
-        
-        fetch("set-image-caption/"+ imageid, {method: "POST", body: formData});
-    }
+    const formData = new FormData();
+    formData.append('caption', el.value);
+    
+    fetch("set-image-caption/"+ imageid, {method: "POST", body: formData});
 }
 
 // this uploads an image, possibly to an existing post. If there is no post yet, it receives
