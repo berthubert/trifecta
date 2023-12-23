@@ -15,6 +15,7 @@ and web technologies. Intended to both be useful and make some points.
    monthly updates.
  * Still get high-end features
  * Actually get an image sharing site for your friends/company
+   * Does not provide (moderation) infrastructure for uploads by the public
  * Be a template for other projects
 
 Once done, in ~600 lines of C++, this gets you a safe and secure image sharing site
