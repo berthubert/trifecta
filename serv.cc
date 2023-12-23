@@ -598,7 +598,7 @@ int trifectaMain(int argc, const char**argv)
         return;
         //        throw std::runtime_error("Not logged-in");
       }
-      lsqw.queryJ(res, "select images.id, postid, images.tstamp,content_type,length(image) as size, public, posts.publicUntilTstamp from images,posts where postId = posts.id and user=?", {a.getUser(req)});
+      lsqw.queryJ(res, "select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {a.getUser(req)});
     });  
 
     svr.Post("/logout", [&lsqw, a](const httplib::Request &req, httplib::Response &res) mutable {
