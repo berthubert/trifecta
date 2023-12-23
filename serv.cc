@@ -362,17 +362,30 @@ int trifectaMain(int argc, const char**argv)
     res.status = 303;
   });
 
-  svr.Get("/getPost/:postid", [&lsqw, a](const auto& req, auto& res) {
+  svr.Get("/getPost/:postid", [&lsqw, a, &u](const auto& req, auto& res) {
     string postid = req.path_params.at("postid");
+    string user;
+    try {
+      user = a.getUser(req);
+    }catch(...){}
 
-    // XXX admin an owner should be able to see post, even if not public
-    auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id and public=1", {postid});
     nlohmann::json j;
-    j["images"]=packResultsJson(images);
 
-    auto title = lsqw.query("select title from posts where public=1 and id=?", {postid});
-    if(title.size()==1)
-      j["title"]=get<string>(title[0]["title"]);
+    // this needs to also implement the 'publicUntil' logic
+    
+    auto post = lsqw.query("select user, public from posts where id=?", {postid});
+    if(post.size() != 1) {
+      j["images"] = nlohmann::json::array();
+    }
+    else if(get<int64_t>(post[0]["public"]) || (get<string>(post[0]["user"]) == user || u.userHasCap(user, "admin"))) {
+      auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
+
+      j["images"]=packResultsJson(images);
+
+      auto title = lsqw.query("select title from posts where id=?", {postid});
+      if(title.size()==1)
+        j["title"]=get<string>(title[0]["title"]);
+    }
     res.set_content(j.dump(), "application/json");
   });
   

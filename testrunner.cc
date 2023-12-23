@@ -251,6 +251,14 @@ TEST_CASE("web visibility tests") {
   res = cli.Post("/set-post-public/"+postId+"/0", pietSession);
   REQUIRE(res != 0);
 
+  res = cli.Get("/getPost/"+postId, adminSession); // with admin cookie
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  cout<<"dump: " << j.dump()<<endl;
+  REQUIRE(j["images"].size() == 1);
+  CHECK(j["images"][0]["id"] == upload1);
+
+  
   res = cli.Get("/i/"+upload1); // no cookie
   REQUIRE(res != 0); CHECK(res->status == 404);
   
