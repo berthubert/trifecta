@@ -70,10 +70,10 @@
             <a x-bind:href="'i/'+g.id" ><img x-cloak x-bind:alt="g.caption" x-bind:src="'i/'+g.id"></a>
             <div class="imagecontrols">
               <template x-if="can_touch_post">
-                <input class="imageCaption" x-model="g.caption" placeholder="Give your image a caption" @keyup="processCaptionKey($data, $el, $event, g.id)">
+                <textarea class="imageCaption" x-model="g.caption" placeholder="Give your image a caption" rows="4" cols="70" @keyup="processCaptionKey($data, $el, $event, g.id)"></textarea>
               </template>
               <template x-if="!can_touch_post">
-                <p class="imageCaption" x-text="g.caption" ></p>
+                <p class="imageCaption" x-text="g.caption"></p>
               </template>
 
               <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
