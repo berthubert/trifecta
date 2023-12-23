@@ -253,8 +253,6 @@ bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::
   return true;
 }
 
-
-
 int trifectaMain(int argc, const char**argv)
 {
   argparse::ArgumentParser args("serv");
@@ -459,15 +457,7 @@ int trifectaMain(int argc, const char**argv)
         throw std::runtime_error("Can't upload if not logged in");
       string user = a.getUser(req);
       time_t tstamp = time(0);
-      cout<<"Got "<<req.files.size()<<" files"<<endl;
-      string postId;
-      for(auto&& [name, f] : req.files) {
-        fmt::print("f name {}, filename {}, content_type {}, size {}\n", f.name, f.filename, f.content_type, f.content.size());
-        if(f.name=="postId") {
-          cout<<"Setting postId of new upload to "<<f.content<<endl;
-          postId = f.content;
-        }
-      }
+      string postId = req.get_file_value("postId").content;
       if(postId.empty()) {
         cout<<"Creating a post"<<endl;
         postId = makeShortID(getRandom63());
@@ -522,11 +512,7 @@ int trifectaMain(int argc, const char**argv)
         throw std::runtime_error("Can't set post title if not logged in");
       string postid = req.matches[1];
 
-      string title;
-      for(auto&& [name, f] : req.files) {
-        if(name=="title")
-          title = f.content;
-      }
+      string title = req.get_file_value("title").content;
       string user = a.getUser(req);
       cout<<"Attemping to set title for post "<< postid<<" for user " << user <<" to " << title << endl;
       auto rows = lsqw.query("select user from posts where id=?", {postid});
@@ -545,11 +531,7 @@ int trifectaMain(int argc, const char**argv)
         throw std::runtime_error("Can't set image caption if not logged in");
       string imgid = req.matches[1];
 
-      string caption;
-      for(auto&& [name, f] : req.files) {
-        if(name=="caption")
-          caption = f.content;
-      }
+      string caption = req.get_file_value("caption").content;
       string user = a.getUser(req);
       cout<<"Attemping to set caption for image "<< imgid<<" for user " << user <<" to " << caption << endl;
       checkImageOwnership(lsqw, u, user, imgid);
@@ -651,13 +633,8 @@ int trifectaMain(int argc, const char**argv)
           throw std::runtime_error("Not admin");
         }
 
-        string password1, user;
-        for(auto&& [name, f] : req.files) {
-          if(name=="password1")
-            password1 = f.content;
-          if(name=="user")
-            user = f.content;
-        }
+        string password1 = req.get_file_value("password1").content;
+        string user = req.get_file_value("user").content;
         nlohmann::json j;
         
         if(password1.empty() || user.empty()) {
