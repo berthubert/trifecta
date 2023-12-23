@@ -19,12 +19,20 @@ Todo:
   Enable password reset email
 
   implement expiry in UI
+     public=0 really means that
+     public=1 means "public until pubicUntil if non-zero"
 
-  commandline interface to *change* password for admin
-  make sure admin can do everything
-  implement change (my) password
-  implement deleting a user
-  if a user is disabled, do images disappear?
+  implement change my password in UI
+  if a user is disabled, do images/posts turn into 404s?
+
+  opengraph data for previews, how? iframe?
+
+  how do we deal with errors?  500? or a JSON thing?
+    authentication/authorization error?
+    impossible requests?
+      "trying to delete an image that does not exist"
+
+  
 */
 
 /* posts:
@@ -251,6 +259,19 @@ bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::
   return true;
 }
 
+bool shouldShow(Users& u, std::string& user, unordered_map<string, MiniSQLite::outvar_t> row)
+{
+  // admin and owner can always see a post
+  if(get<string>(row["user"]) == user || u.userHasCap(user, "admin"))
+    return true;
+  
+  if(!get<int64_t>(row["public"]))
+    return false;
+
+  time_t pubUntil = get<int64_t>(row["publicUntilTstamp"]);
+  return (!pubUntil || time(0) < pubUntil);
+}
+
 int trifectaMain(int argc, const char**argv)
 {
   argparse::ArgumentParser args("serv");
@@ -365,13 +386,11 @@ int trifectaMain(int argc, const char**argv)
 
     nlohmann::json j;
 
-    // this needs to also implement the 'publicUntil' logic
-    
     auto post = lsqw.query("select user, public, publicUntilTstamp from posts where id=?", {postid});
     if(post.size() != 1) {
       j["images"] = nlohmann::json::array();
     }
-    else if(get<int64_t>(post[0]["public"]) || (get<string>(post[0]["user"]) == user || u.userHasCap(user, "admin"))) {
+    else if(shouldShow(u, user, post[0])) {
       auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
 
       j["images"]=packResultsJson(images);
@@ -399,21 +418,11 @@ int trifectaMain(int argc, const char**argv)
       return;
     }
     
-    // if not owned by user, need to check publicUntilTstamp
-    if(!checkImageOwnershipBool(lsqw, u, user, imgid)) {
-      if(!get<int64_t>(results[0]["public"])) {
-        lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "not public"}}, "log");
-        return;
-      }
-      
-      if(auto ptr = get_if<int64_t>(&results[0]["publicUntilTstamp"]) ) {
-        if(*ptr && *ptr < time(0)) {
-          lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "no longer public"}}, "log");
-          return;
-        }
-      }
+    if(!shouldShow(u, user, results[0])) {
+      lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
+      return;
     }
-    
+          
     auto img = get<vector<uint8_t>>(results[0]["image"]);
     string s((char*)&img[0], img.size());
     res.set_content(s, get<string>(results[0]["content_type"]));
@@ -546,15 +555,28 @@ int trifectaMain(int argc, const char**argv)
       u.changePassword(user, pwfield.content);
     });
     
-    svr.Post("/set-post-public/([^/]+)/([01])", [&lsqw, a, &u](const auto& req, auto& res) {
+    svr.Post("/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't change public setting if not logged in");
       string postid = req.matches[1];
       bool pub = stoi(req.matches[2]);
-      cout<<"imgid: "<< postid << ", new state: "<<pub<<endl;
-      string user = a.getUser(req);
 
-      lsqw.query("update posts set public =? where id=?", {pub, postid});
+      string user = a.getUser(req);
+      time_t until=0;
+         
+      if(req.matches.size() > 3) {
+        string untilStr = req.matches[3];
+        if(!untilStr.empty())
+          until = stoi(untilStr);
+      }
+      cout<<"postid: "<< postid << ", new state: "<<pub<<", until: "<<until <<", matches "<< req.matches.size()<<endl;
+      if(!pub && until)
+        throw std::runtime_error("Attempting to set nonsensical combination for public");
+
+      if(until)
+        lsqw.query("update posts set public = ?, publicUntilTstamp=? where id=?", {pub, until, postid});
+      else
+        lsqw.query("update posts set public =? where id=?", {pub, postid});
       lsqw.addValue({{"action", "change-post-public"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     });
 

@@ -274,6 +274,31 @@ TEST_CASE("web visibility tests") {
 
   res = cli.Get("/i/"+upload1); // no cookie
   REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  // admin makes post public until one minute ago
+  res = cli.Post("/set-post-public/"+postId+"/1/" + to_string(time(0)-60), adminSession);
+  REQUIRE(res != 0);
+
+  // should be 404 for anon user
+  res = cli.Get("/i/"+upload1); // no cookie
+  REQUIRE(res != 0); CHECK(res->status == 404);
+
+  res = cli.Get("/i/"+upload1, adminSession); // as admin, should work
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  // admin makes post public for one minute 
+  res = cli.Post("/set-post-public/"+postId+"/1/" + to_string(time(0)+60), adminSession);
+  REQUIRE(res != 0);
+
+  res = cli.Get("/i/"+upload1); // no cookie, should work
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  // admin makes post non-public, but confusingly tries to also set a time limit
+  res = cli.Post("/set-post-public/"+postId+"/0/" + to_string(time(0)+60), adminSession);
+  REQUIRE(res != 0);
+  CHECK(res->status == 500);
+
+  
 }
 
 
