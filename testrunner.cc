@@ -174,6 +174,8 @@ TEST_CASE("basic web tests") {
   CHECK(j["images"].size() == 2);
   
   CHECK(j["title"] == "this is the title");
+  CHECK(j["public"] == 1);
+  CHECK(j["publicUntil"] == 0);
 
   CHECK(j["images"][0]["id"]==upload1);
   CHECK(j["images"][0]["caption"] == "this is a caption");
@@ -286,13 +288,19 @@ TEST_CASE("web visibility tests") {
   res = cli.Get("/i/"+upload1, adminSession); // as admin, should work
   REQUIRE(res != 0); CHECK(res->body == items[0].content);
 
-  // admin makes post public for one minute 
-  res = cli.Post("/set-post-public/"+postId+"/1/" + to_string(time(0)+60), adminSession);
+  // admin makes post public for one minute
+  time_t newTime = time(0)+60;
+  res = cli.Post("/set-post-public/"+postId+"/1/" + to_string(newTime), adminSession);
   REQUIRE(res != 0);
 
   res = cli.Get("/i/"+upload1); // no cookie, should work
   REQUIRE(res != 0); CHECK(res->body == items[0].content);
 
+  res = cli.Get("/getPost/"+postId);
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["publicUntil"]==newTime);
+  
   // admin makes post non-public, but confusingly tries to also set a time limit
   res = cli.Post("/set-post-public/"+postId+"/0/" + to_string(time(0)+60), adminSession);
   REQUIRE(res != 0);

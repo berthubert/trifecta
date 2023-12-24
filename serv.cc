@@ -386,7 +386,7 @@ int trifectaMain(int argc, const char**argv)
 
     nlohmann::json j;
 
-    auto post = lsqw.query("select user, public, publicUntilTstamp from posts where id=?", {postid});
+    auto post = lsqw.query("select user, public, title, publicUntilTstamp from posts where id=?", {postid});
     if(post.size() != 1) {
       j["images"] = nlohmann::json::array();
     }
@@ -394,10 +394,9 @@ int trifectaMain(int argc, const char**argv)
       auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
 
       j["images"]=packResultsJson(images);
-
-      auto title = lsqw.query("select title from posts where id=?", {postid});
-      if(title.size()==1)
-        j["title"]=get<string>(title[0]["title"]);
+      j["title"]=get<string>(post[0]["title"]);
+      j["public"]=get<int64_t>(post[0]["public"]);
+      j["publicUntil"]=get<int64_t>(post[0]["publicUntilTstamp"]);
     }
     res.set_content(j.dump(), "application/json");
   });
