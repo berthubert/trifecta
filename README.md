@@ -38,7 +38,6 @@ Both images and posts can be public or not.
 
 # Known problems
 
- * You can only paste files right now, not drag and drop
  * UI is clunky
  * You can't yet change your password
  * Login emails not yet implemented
@@ -96,6 +95,22 @@ location /trifecta/ {
         add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;" always;
 }
 ```
+
+# Distributing binaries, docker etc
+To make a more portable binary, try:
+
+```bash
+LDFLAGS="-static-libstdc++ -static-libgcc" meson setup build --prefer-static
+meson compile -C build/
+```
+
+Or even:
+```bash
+LDFLAGS=-static meson setup build --prefer-static
+meson compile -C build/
+```
+
+From this it should be easy to create a Docker (or similar) image.
 
 # Inspiration
 The SUSE past-o-o pastebin: https://github.com/openSUSE/paste-o-o
