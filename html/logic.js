@@ -180,47 +180,79 @@ function processCaptionKey(f, el, e, imageid)
     fetch("set-image-caption/"+ imageid, {method: "POST", body: formData});
 }
 
+async function uploadFile(clipboardItem, f)
+{
+    if (clipboardItem.type.startsWith('image/')) {
+        const formData = new FormData();
+        if(f.postId != '') {
+            console.log("Passing known postId: "+f.postId);
+            formData.append('postId', f.postId);
+        }
+        formData.append('file', clipboardItem, clipboardItem.name);
+
+        await fetch("upload", {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => {
+                if (response.ok) {
+                    // this "return" is what makes the chaining work
+                    return response.json().then(data => {
+                        f.images.push({"id": data.id});
+                        f.postId = data.postId;
+                        console.log("Set postId to "+f.postId);
+                        f.can_touch_post=1;
+                        const url = new URL(window.location.href);
+                        url.searchParams.set("p", data.postId); 
+                        history.pushState({}, "", url);
+                        getMyImageList(f);
+                    });
+                } else {
+                    console.error('Error uploading file:', response.statusText);
+                }
+            })
+            .catch(error => {
+                console.error('Network error during file upload', error);
+            });
+    }
+    else
+        console.log("Don't know how to deal with paste of "+clipboardItem.type);
+        
+}
+    
 // this uploads an image, possibly to an existing post. If there is no post yet, it receives
 // the post that was created for us
-function getImageFromPaste(f, e)
+async function getImageFromPaste(f, e)
 {
     e.preventDefault();
     if(!f.loggedon) {
         f.message2user="Please login to paste an image.";
         return;
     }
-    for (const clipboardItem of e.clipboardData.files) {
-        if (clipboardItem.type.startsWith('image/')) {
-            const formData = new FormData();
-            if(f.postId != '')
-                formData.append('postId', f.postId);
-            formData.append('file', clipboardItem, clipboardItem.name);
 
-            fetch("upload", {
-                method: 'POST',
-                body: formData
-            })
-                .then(response => {
-                    if (response.ok) {
-                        response.json().then(data => {
-                            f.images.push({"id": data.id});
-                            f.postId = data.postId;
-                            f.can_touch_post=1;
-                            const url = new URL(window.location.href);
-                            url.searchParams.set("p", data.postId); 
-                            history.pushState({}, "", url);
-                            getMyImageList(f);
-                        });
-                    } else {
-                        console.error('Error uploading file:', response.statusText);
-                    }
-                })
-            .catch(error => {
-                console.error('Network error during file upload', error);
-            });
+    let files=e.clipboardData.files;
+    if(files.length > 0) {
+        await uploadFile(files[0], f);
+        for (let n=1; n < files.length; ++n) {
+            console.log("Start upload "+n);
+            uploadFile(files[n], f);
         }
-        else
-            console.log("Don't know how to deal with paste of "+clipboardItem.type);
+    }
+}
+
+async function processDrop(f, e)
+{
+    if(!f.loggedon) {
+        f.message2user="Please login to paste an image.";
+        return;
+    }
+    let files=e.dataTransfer.files;
+
+    if(files.length > 0) {
+        await uploadFile(files[0], f);
+        for (let n=1; n < files.length; ++n) {
+            uploadFile(files[n], f);
+        }
     }
 }
 

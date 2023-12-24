@@ -83,7 +83,8 @@
       </div>
 
       <template x-if="showPasteImage"> 
-        <div id="paste" @paste="getImageFromPaste($data, $event)">
+        <div id="paste" @paste="getImageFromPaste($data, $event)"
+             @drop.prevent="processDrop($data, $event)" @dragover.prevent="">
           <h2>Paste your image here</h2>
           <p>Simply paste your picture here.</p>
         </div>
