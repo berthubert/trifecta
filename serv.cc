@@ -31,8 +31,6 @@ Todo:
     authentication/authorization error?
     impossible requests?
       "trying to delete an image that does not exist"
-
-  
 */
 
 std::string& testrunnerPw()
@@ -285,8 +283,8 @@ int trifectaMain(int argc, const char**argv)
     args.parse_args(argc, argv);
   }
   catch (const std::runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    std::cerr << args;
+    std::cout << err.what() << std::endl;
+    std::cout << args;
     std::exit(1);
   }
   fmt::print("Database is in {}\n", args.get<string>("db-file"));
@@ -304,9 +302,8 @@ int trifectaMain(int argc, const char**argv)
   if(args["--rnd-admin-password"] == true) {
     bool changed=false;
     string pw = makeShortID(getRandom63());
-    // for the testrunner
-    
-    testrunnerPw() = pw;
+
+    testrunnerPw() = pw;     // for the testrunner
     
     try {
       if(u.userHasCap("admin", "admin")) {

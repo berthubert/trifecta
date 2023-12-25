@@ -44,8 +44,8 @@ namespace {
         trifectaMain(6, argv);
       });
       d_t = std::move(t1);
-      d_t.detach();
-      usleep(250000);
+      d_t.detach(); // now we wait for the server to be active
+      usleep(250000); // bit sad, should have a semaphore
     }
 
     httplib::Headers doLogin(const string& user = "admin", const string& password="")
