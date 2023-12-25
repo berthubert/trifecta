@@ -14,7 +14,7 @@ and web technologies. Intended to both be useful and make some points.
    * A Go version of the backend is very welcome!
  * Build something that is extremely robust and secure and does not need
    monthly updates.
- * Still get high-end features
+   * Still get high-end features
  * Actually get an image sharing site for your friends/company
    * Does not provide (moderation) infrastructure for uploads by the public
  * Be a template for other projects
@@ -53,14 +53,14 @@ good existing software is great:
  * [SQLiteWriter](https://github.com/berthubert/sqlitewrite/),
    [SQLite](https://sqlite.org/)
  * [Alpine.js](https://alpinejs.dev/), a minimalistic Javascript environment
- * [{fmt}](https://github.com/fmtlib/fmt), soon to be part of the C++ standard
+ * [{fmt}](https://github.com/fmtlib/fmt), excellent string formatting, part recent C++ standards also
  * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent  HTTP library
  * [doctest](https://github.com/doctest/doctest), very nice and fast unit  tests
  * [argparse](https://github.com/p-ranav/argparse), great argument parser
  * [Crypto++](https://www.cryptopp.com/) - only for a baseurl64 encoder right now
 
 # Description
-You can paste or drag images to trifecta. If you upload an image, a post will be created for it automatically. 
+You can paste or drag images to Trifecta. If you upload an image, a post will be created for it automatically. 
 
 A post can contain multiple images. Each image can have a caption, and each post a title. 
 
@@ -98,6 +98,8 @@ And you should be in business. This creates a random admin password, which
 it prints for you. It also prints out the URL on which you can
 contact the service. On first use you'll get some scary looking SQL errors,
 these go away once you've uploaded your first image.
+
+To do admin things (like create new users), visit /admin.html
 
 To take this into production using nginx (for
 letsencrypt, TLS etc), try:
