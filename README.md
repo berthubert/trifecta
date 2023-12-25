@@ -19,8 +19,25 @@ and web technologies. Intended to both be useful and make some points.
    * Does not provide (moderation) infrastructure for uploads by the public
  * Be a template for other projects
 
-Once done, in ~700 lines of C++, this will get you a safe and secure image
-sharing site that you could run yourself and forget about.
+Once done, in ~1000 lines of C++ & Javascript, this will get you a safe and
+secure image sharing site that you could run yourself and forget about.
+
+> Note: the security goals have not yet been achieved, heavy development is
+> ongoing. There are no known problems though.
+
+# What is the point?
+For one, I'd love to have an 'imgur' just for myself.  But I also do not
+want a giant web based solution with multiple security issues per year.  Or
+month.  I yearn for software like djbdns or qmail that you could trust to
+not have gaping security holes all the time.
+
+Fundamentally, there is no way to keep a solution with hundreds (or
+thousands) of dependencies secure. Yet, this is what modern web development
+has mostly become. 
+
+Trifecta is an attempt to create a useful and reliable piece of software
+that also showcases that it is still possible to write small programs with
+a much more limited attack surface.
 
 # Status & Thanks
 Heavy development ongoing!
@@ -30,8 +47,20 @@ Many thanks are also due to early users & contributors:
  * Ruben d'Arco
  * Roel van der Made
 
+While having 700 (indirect) dependencies is not good, benefiting from very
+good existing software is great:
+
+ * [SQLiteWriter](https://github.com/berthubert/sqlitewrite/),
+   [SQLite](https://sqlite.org/)
+ * [Alpine.js](https://alpinejs.dev/), a minimalistic Javascript environment
+ * [{fmt}](https://github.com/fmtlib/fmt), soon to be part of the C++ standard
+ * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent  HTTP library
+ * [doctest](https://github.com/doctest/doctest), very nice and fast unit  tests
+ * [argparse](https://github.com/p-ranav/argparse), great argument parser
+ * [Crypto++](https://www.cryptopp.com/) - only for a baseurl64 encoder right now
+
 # Description
-You can paste or drag images to trifecta. If you paste an image, a post will be created for it automatically. 
+You can paste or drag images to trifecta. If you upload an image, a post will be created for it automatically. 
 
 A post can contain multiple images. Each image can have a caption, and each post a title. 
 
