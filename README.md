@@ -106,11 +106,36 @@ meson compile -C build/
 
 Or even:
 ```bash
-LDFLAGS=-static meson setup build --prefer-static
+LDFLAGS=-static meson setup build --prefer-static -Dbuildtype=release -Dcpp-httplib:cpp-httplib_openssl=disabled -Dcpp-httplib:cpp-httplib_brotli=disabled
+
 meson compile -C build/
 ```
 
-From this it should be easy to create a Docker (or similar) image.
+From this it is trivial to create be easy to create a Docker or podman
+image:
+
+```bash
+strip build/trifecta
+podman build -t berthubert/trifecta -f Dockerfile
+podman run -p 1234:1234 -v /some/place/local-db/:/local-db berthubert/trifecta 
+```
+This syntax means:
+
+ * The binary in the container exposes port 1234, expose it to the world as
+   1234 as well
+ * Containers are immutable, but we'd love to actually retain uploaded
+   images. We therefore mount `/some/place/local-db` on your file system to
+   `/local-db` in the container
+ * You need to add `--admin-password` to the last line to set an admin password. 
+
+To export this image, try:
+
+```bash
+podman save localhost/berthubert/trifecta -o trifecta.container
+bzip2 trifecta.container
+```
+
+This gets you a 2.3 megabyte compressed container you can distribute.
 
 # Inspiration
 The SUSE past-o-o pastebin: https://github.com/openSUSE/paste-o-o
