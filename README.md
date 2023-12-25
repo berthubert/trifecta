@@ -1,16 +1,17 @@
 # trifecta
-A simple image sharing site, built with a combination of modern c++, database
+A simple image sharing site, built with a combination of modern C++, database
 and web technologies. Intended to both be useful and make some points.
 
 # Goals
 
+ * Show how you can build things without 200 dependencies
+ * Show you can do so self-contained without tons of infrastructure
+   * 2.3MB Docker/Podman image, needs nothing else
  * Provide an easy on-ramp for "C++ people" to using modern web technology
    * Using a non-bloated minimal framework (alpine.js)
  * Showcase modern C++ and build tools (Meson)
    * A Rust version of the backend is very welcome!
    * A Go version of the backend is very welcome!
- * Show how you can build things without 200 dependencies
- * Show you can do so self-contained without tons of infrastructure
  * Build something that is extremely robust and secure and does not need
    monthly updates.
  * Still get high-end features
@@ -18,8 +19,8 @@ and web technologies. Intended to both be useful and make some points.
    * Does not provide (moderation) infrastructure for uploads by the public
  * Be a template for other projects
 
-Once done, in ~600 lines of C++, this gets you a safe and secure image sharing site
-that you could run yourself and forget about. 
+Once done, in ~700 lines of C++, this will get you a safe and secure image
+sharing site that you could run yourself and forget about.
 
 # Status & Thanks
 Heavy development ongoing!
@@ -30,16 +31,16 @@ Many thanks are also due to early users & contributors:
  * Roel van der Made
 
 # Description
-You can paste (but not yet drag!) images to trifecta. If you paste an image, a post will be created for it automatically. 
+You can paste or drag images to trifecta. If you paste an image, a post will be created for it automatically. 
 
 A post can contain multiple images. Each image can have a caption, and each post a title. 
 
-Both images and posts can be public or not. 
+Both images and posts can be public or not, or have a timelimit.
 
 # Known problems
 
  * UI is clunky
- * You can't yet change your password
+ * You can't change your password yet
  * Login emails not yet implemented
  * Security is probably not yet where it should be
  * The code is still a mess and not yet "education clean"
@@ -52,7 +53,7 @@ systems the following works:
 apt install libsqlite3-dev nlohmann-json3-dev python3-pip libcrypto++-dev pkg-config
 ```
 
-In addition, the project requiers a recent version of meson, which you can
+In addition, the project requires a recent version of meson, which you can
 get with 'pip3 install meson ninja' or perhaps 'pip install
 meson ninja' and only if that doesn't work 'apt install meson'.
 
@@ -151,3 +152,4 @@ cottow's 6paster: https://github.com/cottow/6paster
 
 Project with similar aims, a webmail solution built on Go and a functional language called Elm:
 https://github.com/inbucket/inbucket
+
