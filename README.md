@@ -53,7 +53,7 @@ good existing software is great:
  * [SQLiteWriter](https://github.com/berthubert/sqlitewrite/),
    [SQLite](https://sqlite.org/)
  * [Alpine.js](https://alpinejs.dev/), a minimalistic Javascript environment
- * [{fmt}](https://github.com/fmtlib/fmt), excellent string formatting, part recent C++ standards also
+ * [{fmt}](https://github.com/fmtlib/fmt), excellent string formatting, part of recent C++ standards also
  * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent  HTTP library
  * [doctest](https://github.com/doctest/doctest), very nice and fast unit  tests
  * [argparse](https://github.com/p-ranav/argparse), great argument parser
@@ -73,6 +73,9 @@ Both images and posts can be public or not, or have a timelimit.
  * Login emails not yet implemented
  * Security is probably not yet where it should be
  * The code is still a mess and not yet "education clean"
+
+More low hanging fruit can be found in the [GitHub issues
+list](https://github.com/berthubert/trifecta/issues).
 
 # Building
 Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
