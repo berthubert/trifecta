@@ -50,8 +50,9 @@ Many thanks are also due to early users & contributors:
 While having 700 (indirect) dependencies is not good, benefiting from very
 good existing software is great:
 
- * [SQLiteWriter](https://github.com/berthubert/sqlitewrite/),
-   [SQLite](https://sqlite.org/)
+ * [SQLiteWriter](https://github.com/berthubert/sqlitewrite/) for seamless
+   bridge between SQL and JSON, with automated schema generation, [SQLite](https://sqlite.org/)
+ * [nlohmann-json](https://github.com/nlohmann/json), great C++ JSON library
  * [Alpine.js](https://alpinejs.dev/), a minimalistic Javascript environment
  * [{fmt}](https://github.com/fmtlib/fmt), excellent string formatting, part of recent C++ standards also
  * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent  HTTP library
@@ -64,7 +65,8 @@ You can paste or drag images to Trifecta. If you upload an image, a post will be
 
 A post can contain multiple images. Each image can have a caption, and each post a title. 
 
-Both images and posts can be public or not, or have a timelimit.
+Posts can be public or not, or have a timelimit on their public visibility
+(not yet hooked up in the UI).
 
 # Known problems
 
