@@ -35,10 +35,11 @@ Todo:
   
 */
 
-/* posts:
-   Every upload is part of a post, and we make one for you if needed
-   you then get a new page that allows you to add to *this* post
-*/
+std::string& testrunnerPw()
+{
+  static string testrunnerpw; // this is so the testrunner can get the newly created password
+  return testrunnerpw;
+}
 
 // helper that makes sure only 1 thread uses the sqlitewriter at a time, plus some glue to emit answers as json
 struct LockedSqw
@@ -47,7 +48,7 @@ struct LockedSqw
   
   SQLiteWriter& sqw;
   std::mutex& sqwlock;
-  vector<unordered_map<string, MiniSQLite::outvar_t>> query(const std::string& query, const std::initializer_list<SQLiteWriter::var_t>& values)
+  vector<unordered_map<string, MiniSQLite::outvar_t>> query(const std::string& query, const std::initializer_list<SQLiteWriter::var_t>& values ={})
   {
     std::lock_guard<mutex> l(sqwlock);
     return sqw.queryT(query, values);
@@ -112,7 +113,6 @@ bool Users::checkPassword(const std::string& user, const std::string& password) 
 void Users::createUser(const std::string& user, const std::string& password, const std::string& email, bool admin)
 {
   string pwhash = bcrypt::generateHash(password);
-  cout<<"Going to add user '"<<user<<"'"<<endl;
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
   d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
@@ -125,7 +125,6 @@ void Users::delUser(const std::string& user)
 void Users::changePassword(const std::string& user, const std::string& password)
 {
   string pwhash = bcrypt::generateHash(password);
-  cout<<"Going to change password for  '"<<user<<"'"<<endl;
   auto res = d_lsqw.query("select user from users where user=?", {user});
   if(res.size()!=1 || get<string>(res[0]["user"]) != user) {
     d_lsqw.addValue({{"action", "change-password-failure"}, {"user", user}, {"ip", "xx missing xx"}, {"meta", "no such user"}, {"tstamp", time(0)}}, "log");
@@ -278,7 +277,7 @@ int trifectaMain(int argc, const char**argv)
 
   args.add_argument("db-file").help("file to read database from").default_value("trifecta.sqlite");
   args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
-  args.add_argument("--admin-password").help("If set, create admin user with this password or change password");
+  args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").flag();
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
   args.add_argument("--local-address", "-l").help("address to listen on").default_value("0.0.0.0");
   
@@ -290,7 +289,7 @@ int trifectaMain(int argc, const char**argv)
     std::cerr << args;
     std::exit(1);
   }
-
+  fmt::print("Database is in {}\n", args.get<string>("db-file"));
   SQLiteWriter sqw(args.get<string>("db-file"),
                    {
                      {"users", {{"user", "PRIMARY KEY"}}},
@@ -302,20 +301,42 @@ int trifectaMain(int argc, const char**argv)
   LockedSqw lsqw{sqw, sqwlock};
   Users u(lsqw);
   
-  if(auto fn = args.present("--admin-password")) {
+  if(args["--rnd-admin-password"] == true) {
     bool changed=false;
+    string pw = makeShortID(getRandom63());
+    // for the testrunner
+    
+    testrunnerPw() = pw;
+    
     try {
       if(u.userHasCap("admin", "admin")) {
-        cout<<"Admin user existed already, updating password"<<endl;
-        u.changePassword("admin", *fn);
+        cout<<"Admin user existed already, updating password to: "<< pw << endl;
+        u.changePassword("admin", pw);
         changed=true;
       }
     }
     catch(...) {
     }
       
-    if(!changed)
-      u.createUser("admin", *fn, "", true);
+    if(!changed) {
+      fmt::print("Creating user admin with password: {}\n", pw);
+      u.createUser("admin", pw, "", true);
+    }
+  }
+
+  try {
+    auto admins=lsqw.query("select user from users where admin=1");
+    if(admins.empty())
+      fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
+    else {
+      fmt::print("Admin users: ");
+      for(auto& a: admins) 
+        fmt::print("{} ", get<string>(a["user"]));
+      fmt::print("\n");
+    }
+  }
+  catch(...) {
+    fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
   }
   
   httplib::Server svr;
@@ -724,7 +745,7 @@ int trifectaMain(int argc, const char**argv)
    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
                 reinterpret_cast<const void *>(&yes), sizeof(yes));
   });
-  
+
   if(!svr.listen(laddr, args.get<int>("port"))) {
     cout<<"Error launching server: "<<strerror(errno)<<endl;
     return EXIT_FAILURE;

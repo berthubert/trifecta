@@ -39,7 +39,7 @@ namespace {
       std::thread t1([]() {
         unlink("testrunner.sqlite");
         const char* argv[] = {"./trifecta", "testrunner.sqlite", "-p", "9999",
-          "--admin-password=admin1234",
+          "--rnd-admin-password",
           "--local-address=127.0.0.1"};
         trifectaMain(6, argv);
       });
@@ -48,12 +48,16 @@ namespace {
       usleep(250000);
     }
 
-    httplib::Headers doLogin(const string& user = "admin", const string& password="admin1234")
+    httplib::Headers doLogin(const string& user = "admin", const string& password="")
     {
+      string rpassword=password;
+      if(user == "admin" && rpassword.empty()) {
+        rpassword = testrunnerPw();
+      }
       httplib::Client cli("127.0.0.1", 9999);
       httplib::MultipartFormDataItems items = {
         { "user", user, "user"},
-        { "password", password, "password"},
+        { "password", rpassword, "password"},
       };
 
       auto res = cli.Post("/login", items);
@@ -63,7 +67,7 @@ namespace {
       nlohmann::json j= nlohmann::json::parse(res->body);
     
       if(j["ok"] != 1)
-        throw std::runtime_error("Can't login");
+        throw std::runtime_error("Can't login user "+user+" with password '"+rpassword+"'");
     
       string cookieline= res->get_header_value("Set-Cookie");
       //session=c7XaOYsDOhYei09WzN_9hA; SameSite=Strict; Path=/; Max-Age=157680000
@@ -89,6 +93,7 @@ namespace {
       usleep(1100000); // so the sqlite stuff get synched
       /*
       cout<<"Destructor called"<<endl;
+
       auto headers = doLogin();
       httplib::Client cli("127.0.0.1", 9999);
       auto res = cli.Post("/stop", headers);
