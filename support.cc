@@ -32,14 +32,6 @@ unordered_map<string,string> getCookies(const std::string& cookiestr)
   return getGen(cookiestr, "; ");
 }
 
-
-// input: username=ahu&password=secret
-// XXX MUST DO URLDECODE!!
-unordered_map<string,string> getFormFields(const std::string& post)
-{
-  return getGen(post, "&");
-}
-
 string makeShortID(int64_t id)
 {
   string encoded;
