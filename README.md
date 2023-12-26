@@ -67,12 +67,12 @@ You can paste or drag images to Trifecta. If you upload an image, a post will be
 
 A post can contain multiple images. Each image can have a caption, and each post a title. 
 
-Posts can be public or not, or have a timelimit on their public visibility
-(not yet hooked up in the UI).
+Posts can be public or not, or have a timelimit on their public visibility.
+As owner of a post you can extend or change this limit.
 
 # Known problems
 
- * UI is clunky
+ * UI is still somewhat clunky
  * You can't change your password yet
  * Login emails not yet implemented
  * Security is probably not yet where it should be
