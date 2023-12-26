@@ -26,10 +26,11 @@ secure image sharing site that you could run yourself and forget about.
 > ongoing. There are no known problems though.
 
 # What is the point?
-For one, I'd love to have an 'imgur' just for myself.  But I also do not
-want a giant web based solution with multiple security issues per year.  Or
-month.  I yearn for software like djbdns or qmail that you could trust to
-not have gaping security holes all the time.
+For one, I'd love to have an 'imgur' just for myself, one that does not
+monetize me or the visitors to my images.  But I also do not want to host a
+giant web based solution with multiple security issues per year.  Or month. 
+I yearn for software like djbdns or qmail that you could trust to not have
+gaping security holes all the time.
 
 Fundamentally, there is no way to keep a solution with hundreds (or
 thousands) of dependencies secure. Yet, this is what modern web development
