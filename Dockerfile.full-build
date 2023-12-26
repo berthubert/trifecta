@@ -1,0 +1,33 @@
+FROM debian:bookworm AS builder
+RUN apt-get update -yqq && apt-get install -yqq \
+    build-essential \
+    git \
+    libcrypto++-dev \
+    libsqlite3-dev \
+    meson \
+    nlohmann-json3-dev \
+    pkg-config \
+    zlib1g-dev
+COPY . /src
+WORKDIR /src
+
+# we want to build cleanly so we ask meson to generate a tarball of the project
+RUN rm -rf build/ && meson setup build && meson dist -C build --allow-dirty --no-tests
+
+RUN mkdir /project
+WORKDIR /project
+
+# extract the tarball meson made for us and move the content up to where we are
+RUN tar xf /src/build/meson-dist/trifecta-*.tar.xz && mv trifecta-*/* .
+
+RUN LDFLAGS=-static meson setup build --prefer-static -Dbuildtype=release -Dcpp-httplib:cpp-httplib_openssl=disabled -Dcpp-httplib:cpp-httplib_brotli=disabled
+RUN meson compile -C build/
+RUN strip build/trifecta
+
+FROM scratch
+COPY --from=builder /project/build/trifecta trifecta
+COPY --from=builder /project/html html
+VOLUME /local-db
+
+EXPOSE 1234
+ENTRYPOINT ["/trifecta", "-p", "1234","/local-db/trifecta.sqlite"]
