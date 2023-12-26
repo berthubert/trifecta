@@ -181,6 +181,15 @@ This syntax means:
  * --rnd-admin-password creates an admin user with a random password (which
    it prints for you)
 
+When running with Docker, pass `--init` to `docker run` so that signals are handled correctly.
+
+# Simple Docker build
+
+If you do not want to build `trifecta` yourself to generate a Docker image, use `Dockerfile.full-build`:
+
+```bash
+docker build -t berthubert/trifecta -f Dockerfile.full-build .
+```
 
 # Inspiration
 The SUSE past-o-o pastebin: https://github.com/openSUSE/paste-o-o
