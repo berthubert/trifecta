@@ -24,6 +24,8 @@ function getLoginStatus(f)
             fetch('getPost/'+f.postId).then(response => response.json()).then(data => {
                 f.images = data.images;
                 f.postTitle = data.title;
+                f.postPublic = data["public"];
+                f.pustPublicUntil = data["publicUntil"];
             });
             fetch('can_touch_post/'+f.postId).then(response => {
                 if (response.ok) {
