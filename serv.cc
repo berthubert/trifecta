@@ -494,7 +494,7 @@ int trifectaMain(int argc, const char**argv)
       for(auto&& [name, f] : req.files) {
         fmt::print("name {}, filename {}, content_type {}, size {}, postid {}\n", f.name, f.filename, f.content_type, f.content.size(), postId);
         if(f.content_type.substr(0,6) != "image/" || f.filename.empty()) {
-          cout<<"Skipping non-image or non-file"<<endl;
+          cout<<"Skipping non-image or non-file (type " << f.content_type<<", filename '"<<f.filename<<"'"<<endl;
           continue;
         }
         vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
