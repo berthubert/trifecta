@@ -4,7 +4,7 @@ and web technologies. Intended to both be useful and make some points.
 
 # Goals
 
- * Show how you can build things without 200 dependencies
+ * Show how you can build things without [hundreds of dependencies](https://medium.com/graph-commons/analyzing-the-npm-dependency-network-e2cf318c1d0d)
  * Show you can do so self-contained without tons of infrastructure
    * [2.3MB Docker](https://berthub.eu/trifecta/trifecta.docker.bz2)/Podman image, needs nothing else
  * Provide an easy on-ramp for "C++ people" to using modern web technology
@@ -27,8 +27,8 @@ secure image sharing site that you could run yourself and forget about.
 
 # What is the point?
 For one, I'd love to have an 'imgur' just for myself, one that does not
-monetize me or the visitors to my images.  But I also do not want to host a
-giant web based solution with multiple security issues per year.  Or month. 
+monetize me or the viewers of my images.  But I also do not want to host a
+giant web based solution with multiple security issues per year.  [Or month](https://www.mandiant.com/resources/blog/supply-chain-node-js). 
 I yearn for software like djbdns or qmail that you could trust to not have
 gaping security holes all the time.
 
