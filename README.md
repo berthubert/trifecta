@@ -47,6 +47,7 @@ Many thanks are also due to early users & contributors:
 
  * Ruben d'Arco
  * Roel van der Made
+ * Peter van Dijk
 
 While having 700 (indirect) dependencies is not good, benefiting from very
 good existing software is great:
@@ -91,6 +92,12 @@ apt install libsqlite3-dev nlohmann-json3-dev python3-pip libcrypto++-dev pkg-co
 In addition, the project requires a recent version of meson, which you can
 get with 'pip3 install meson ninja' or perhaps 'pip install
 meson ninja' and only if that doesn't work 'apt install meson'.
+
+> The meson in Debian bullseye is very old, and will give you a confusing
+> error message about 'git' if you try it. If you [enable
+> bullseye-backports](https://backports.debian.org/Instructions/) you can do
+> `apt install -t bullseye-backports meson` and get a working one. Or use
+> the pip version, which is also great.
 
 Then run:
 
