@@ -230,6 +230,20 @@ TEST_CASE("web visibility tests") {
   CHECK(j["user"]=="piet");
   CHECK(j["login"]==true);
 
+  // create user karel
+  httplib::MultipartFormDataItems items3 = {
+    { "user", "karel", "user" },
+    { "password1", "karel123karel", "password1" }
+  };
+
+  res = cli.Post("/create-user", adminSession, items3);
+  REQUIRE(res != 0);
+
+  auto karelSession = g_tfs.doLogin("karel", "karel123karel");
+  res = cli.Get("/status", pietSession);
+  REQUIRE(res != 0);
+
+  
   
   httplib::MultipartFormDataItems items = {
     { "file", "test content 123", "hello2.png", "image/png" }
@@ -308,6 +322,16 @@ TEST_CASE("web visibility tests") {
   
   // admin makes post non-public, but confusingly tries to also set a time limit
   res = cli.Post("/set-post-public/"+postId+"/0/" + to_string(time(0)+60), adminSession);
+  REQUIRE(res != 0);
+  CHECK(res->status == 500);
+
+  // non-admin tries to make post public
+  res = cli.Post("/set-post-public/"+postId+"/1/", karelSession);
+  REQUIRE(res != 0);
+  CHECK(res->status == 500);
+
+  // anony,ous tries to make post public
+  res = cli.Post("/set-post-public/"+postId+"/1/");
   REQUIRE(res != 0);
   CHECK(res->status == 500);
 

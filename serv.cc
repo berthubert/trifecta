@@ -246,6 +246,7 @@ void checkImageOwnership(LockedSqw& lsqw, Users& u, std::string& user, std::stri
   }
 }
 
+
 bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::string& imgid)
 {
   try {    checkImageOwnership(lsqw, u, user, imgid);  }
@@ -255,6 +256,17 @@ bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::
   }
   return true;
 }
+
+bool canTouchPost(LockedSqw& lsqw, Users& u, std::string& user, std::string& postid)
+{
+  if(u.userHasCap(user, "admin"))
+    return true;
+  auto check = lsqw.query("select user from posts where id=?", {postid});
+  if(check.size() != 1)
+    return false;
+  return get<string>(check[0]["user"]) == user;
+}
+
 
 bool shouldShow(Users& u, std::string& user, unordered_map<string, MiniSQLite::outvar_t> row)
 {
@@ -589,7 +601,10 @@ int trifectaMain(int argc, const char**argv)
 
       string user = a.getUser(req);
       time_t until=0;
-         
+
+      if(!canTouchPost(lsqw, u, user, postid))
+        throw std::runtime_error("Attempt to change public status of post you can't touch");
+      
       if(req.matches.size() > 3) {
         string untilStr = req.matches[3];
         if(!untilStr.empty())
@@ -610,14 +625,12 @@ int trifectaMain(int argc, const char**argv)
       nlohmann::json j;
       string postid = req.path_params.at("postid");
 
-      j["can_touch_post"]=0;
+      j["can_touch_post"] = 0;
       
       try {
         if(a.check(req)) {
           string user = a.getUser(req);
-          auto sqres = lsqw.query("select count(1) as c from posts where id=? and user=?", {postid, user});
-          if(get<int64_t>(sqres[0]["c"]) || u.userHasCap(user, "admin"))
-            j["can_touch_post"]=1;
+          j["can_touch_post"] = canTouchPost(lsqw, u, user, postid) ? 1 : 0;
         }
       }
       catch(exception&e) { cout<<"No session for checking access rights: "<<e.what()<<"\n";}
