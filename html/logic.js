@@ -25,7 +25,7 @@ function getLoginStatus(f)
                 f.images = data.images;
                 f.postTitle = data.title;
                 f.postPublic = data["public"];
-                f.pustPublicUntil = data["publicUntil"];
+                f.postPublicUntil = data["publicUntil"];
             });
             fetch('can_touch_post/'+f.postId).then(response => {
                 if (response.ok) {
@@ -153,12 +153,25 @@ function doChangePublic(f, postid, el)
         
         if(res.ok) {
             el.checked = !el.checked;
+            f.postPublic = el.checked ? 1 : 0; // we need to propagate this manually
+            // because we prevented normal event processing
             getMyImageList(f);
         }
     });
 }
 
-
+function doChangePublicUntil(f, postid, el, seconds)
+{
+    let limit = (Date.now() / 1000 + seconds).toFixed();
+    if(seconds==0)
+        limit = 0;
+    fetch("set-post-public/"+postid+"/"+f.postPublic+"/"+limit, {method: "POST"}).then(function(res){
+        if(res.ok) {
+            f.postPublicUntil = limit; // we need to propagate this manually
+            getMyImageList(f);
+        }
+    });
+}
 
 function doChangeUserDisabled(f, user, el)
 {
@@ -202,6 +215,9 @@ async function uploadFile(clipboardItem, f)
                     return response.json().then(data => {
                         f.images.push({"id": data.id});
                         f.postId = data.postId;
+                        f.postPublic = data["public"];
+                        f.postPublicUntil = data["publicUntil"];
+                        
                         console.log("Set postId to "+f.postId);
                         f.can_touch_post=1;
                         const url = new URL(window.location.href);

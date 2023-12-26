@@ -63,9 +63,17 @@
         <template x-if="can_touch_post">
           <div>
             <input class="postTitle" x-model="postTitle" placeholder="Give your post a title" @keyup="doSetPostTitle($data, $el)">
+            <br/>
             <label for="publicCB">Public:</label>
             <input name="publicCB" @click.prevent="doChangePublic($data, postId, $el)" type="checkbox"
-                             x-bind:checked="postPublic" />
+                   x-bind:checked="postPublic" x-model="postPublic" />
+            <button @click="doChangePublicUntil($data, postId, $el, 300)" x-show="postPublic">5 minutes</button>
+            <button @click="doChangePublicUntil($data, postId, $el, 3600)" x-show="postPublic">1 hour</button>
+            <button @click="doChangePublicUntil($data, postId, $el, 86400)" x-show="postPublic">1 day</button>
+            <button @click="doChangePublicUntil($data, postId, $el, 30*86400)" x-show="postPublic">1 month</button>
+            <button @click="doChangePublicUntil($data, postId, $el, 0)" x-show="postPublic">Forever</button>
+            <span x-text="if(postPublicUntil > 0 && postPublic && postPublicUntil*1000 >= Date.now()) return 'Until '+new Date(postPublicUntil * 1000).toLocaleString()+ ' your time'; else return '';"></span>
+            <span style="color: red;" x-text="if(postPublicUntil > 0 && postPublicUntil*1000 < Date.now()) return 'PUBLIC TIME LIMIT EXPIRED';"></span>
           </div>
         </template>
         <template x-if="!can_touch_post">

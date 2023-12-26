@@ -414,7 +414,10 @@ int trifectaMain(int argc, const char**argv)
       j["images"]=packResultsJson(images);
       j["title"]=get<string>(post[0]["title"]);
       j["public"]=get<int64_t>(post[0]["public"]);
-      j["publicUntil"]=get<int64_t>(post[0]["publicUntilTstamp"]);
+      time_t until = get<int64_t>(post[0]["publicUntilTstamp"]);
+      j["publicUntil"]=until;
+
+      j["publicUntilExpired"] = until && (time(0) < until);
     }
     res.set_content(j.dump(), "application/json");
   });
@@ -510,6 +513,12 @@ int trifectaMain(int argc, const char**argv)
         nlohmann::json j;
         j["id"]=imgid;
         j["postId"] = postId;
+
+        auto row = lsqw.query("select public, publicUntilTstamp from posts where id=?", {postId});
+        if(!row.empty()) {
+          j["public"] = get<int64_t>(row[0]["public"]);
+          j["publicUntil"] = get<int64_t>(row[0]["publicUntilTstamp"]);;
+        }
         res.set_content(j.dump(), "application/json");
         lsqw.addValue({{"action", "upload"} , {"user", a.getUser(req)}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", tstamp}}, "log");
       }
