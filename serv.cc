@@ -257,7 +257,7 @@ bool checkImageOwnershipBool(LockedSqw& lsqw, Users& u, std::string& user, std::
   return true;
 }
 
-bool canTouchPost(LockedSqw& lsqw, Users& u, std::string& user, std::string& postid)
+bool canTouchPost(LockedSqw& lsqw, Users& u, const std::string& user, const std::string& postid)
 {
   if(u.userHasCap(user, "admin"))
     return true;
@@ -549,6 +549,22 @@ int trifectaMain(int argc, const char**argv)
       lsqw.addValue({{"action", "delete-image"}, {"ip", a.getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
 
+    svr.Post("/delete-post/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
+      if(!a.check(req))
+        throw std::runtime_error("Can't set post title if not logged in");
+      string postid = req.matches[1];
+      nlohmann::json j;
+      j["ok"]=0;
+      if(canTouchPost(lsqw, u, a.getUser(req), postid)) {
+        lsqw.query("delete from posts where id=?", {postid});
+        j["ok"]=1;
+      }
+      else {
+        cout<<"Tried to delete post "<<postid<<" but user "<<a.getUser(req)<<" had no rights"<<endl;
+      }
+      res.set_content(j.dump(), "application/json");
+    });
+      
     svr.Post("/set-post-title/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't set post title if not logged in");

@@ -111,15 +111,12 @@ function doDeleteImage(f, imageid)
         });
 }
 
-function doDeleteImage(f, imageid)
+function doDeletePost(f, postid)
 {
-    return fetch("delete-image/" + imageid, {method: "POST"})
+    return fetch("delete-post/" + postid, {method: "POST"})
         .then(function(res){
             if(res.ok) {
-                f.images = f.images.filter(function(item) {
-                    return item.id !== imageid;
-                })
-                getMyImageList(f);
+                window.location.href="./";
             }
         });
 }

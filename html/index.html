@@ -64,6 +64,7 @@
           <div>
             <input class="postTitle" x-model="postTitle" placeholder="Give your post a title" @keyup="doSetPostTitle($data, $el)">
             <br/>
+            <button @click="doDeletePost($data, postId)">Delete post</button>
             <label for="publicCB">Public:</label>
             <input name="publicCB" @click.prevent="doChangePublic($data, postId, $el)" type="checkbox"
                    x-bind:checked="postPublic" x-model="postPublic" />

@@ -80,7 +80,7 @@ namespace {
 
       pos++;
       string session = cookieline.substr(pos, pos2-pos);
-      cout<<"session is '"<<session<<"'\n";
+      //      cout<<"session is '"<<session<<"'\n";
       httplib::Headers headers = {
       { "Cookie", "session="+session }
       };
@@ -206,6 +206,53 @@ TEST_CASE("basic web tests") {
   CHECK(j["login"]==false);
 }
 
+auto createAndLoginUser(httplib::Client& cli, const httplib::Headers& adminSession, const std::string& user, const std::string& password)
+{
+  httplib::MultipartFormDataItems items = {
+    { "user", user, "user" },
+    { "password1", password, "password1" }
+  };
+
+  auto res = cli.Post("/create-user", adminSession, items);
+  if(!res || res->status != 200)
+    throw std::runtime_error("Client call to create-user failed");
+
+  return g_tfs.doLogin(user, password);
+}
+
+TEST_CASE("post deletion tests") {
+  httplib::Client cli("127.0.0.1", 9999);
+  
+  auto adminSession = g_tfs.doLogin();
+  auto janSession = createAndLoginUser(cli, adminSession, "jan", "jan1234");
+  auto henkSession = createAndLoginUser(cli, adminSession, "henk", "henk1234");
+
+  httplib::MultipartFormDataItems items = {
+    { "file", "test content 123", "hello2.png", "image/png" }
+  };
+  
+  auto res = cli.Post("/upload", janSession, items);
+  REQUIRE(res != 0);
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["postId"] != "");
+
+  string upload1 = j["id"];
+  string postId = j["postId"];
+
+  res = cli.Post("/delete-post/"+postId, henkSession);
+  REQUIRE(res != 0);
+  REQUIRE(res->status == 200);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==0);
+
+  res = cli.Post("/delete-post/"+postId, janSession);
+  REQUIRE(res != 0);
+  REQUIRE(res->status == 200);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==1);
+
+  
+}  
 
 TEST_CASE("web visibility tests") {
   httplib::Client cli("127.0.0.1", 9999);
@@ -243,7 +290,6 @@ TEST_CASE("web visibility tests") {
   res = cli.Get("/status", pietSession);
   REQUIRE(res != 0);
 
-  
   
   httplib::MultipartFormDataItems items = {
     { "file", "test content 123", "hello2.png", "image/png" }
