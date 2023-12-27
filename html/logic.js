@@ -100,8 +100,8 @@ function doLogin(el, f)
 
 function doDeleteImage(f, imageid)
 {
-    console.log("Attempting to delete "+imageid);
-    return fetch("delete-image/" + imageid, {method: "POST"})
+    if (window.confirm("Do you really want to delete this image?")) {
+        fetch("delete-image/" + imageid, {method: "POST"})
         .then(function(res){
             if(res.ok) {
                 f.images = f.images.filter(function(item) {
@@ -109,16 +109,19 @@ function doDeleteImage(f, imageid)
                 })
             }
         });
+    }
 }
 
 function doDeletePost(f, postid)
 {
-    return fetch("delete-post/" + postid, {method: "POST"})
-        .then(function(res){
-            if(res.ok) {
-                window.location.href="./";
-            }
-        });
+    if (window.confirm("Do you really want to delete this post?")) {
+        fetch("delete-post/" + postid, {method: "POST"})
+            .then(function(res){
+                if(res.ok) {
+                    window.location.href="./";
+                }
+            });
+    }
 }
 
 function doKillSession(f, sessionid)
@@ -132,11 +135,13 @@ function doKillSession(f, sessionid)
 
 function doDelUser(f, user)
 {
-    fetch("del-user/"+user, {method: "POST"}).then(function(res){
-        if(res.ok) {
-            getUserList(f);
-        }
-    });
+    if (window.confirm("Do you really want to delete this user?")) {
+        fetch("del-user/"+user, {method: "POST"}).then(function(res){
+            if(res.ok) {
+                getUserList(f);
+            }
+        });
+    }
 }
 
 
