@@ -134,7 +134,7 @@ div#content {
     border-width: var(--size-xxs);
     border-style:dashed;
     border-color: var(--color-primary-5);
-    padding: var(--size-xs);
+    padding: var(--size-l);
 }
 
 
