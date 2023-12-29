@@ -1,16 +1,18 @@
 #define CPPHTTPLIB_USE_POLL
-#include "httplib.h"
-#include "sqlwriter.hh"
-#include "nlohmann/json.hpp"
-#include "bcrypt.h"
 #include <iostream>
 #include <mutex>
-#include "jsonhelper.hh"
-#include "support.hh"
-#include <fmt/core.h>
-#include <stdexcept>
-#include "argparse/argparse.hpp"
 #include <random>
+#include <stdexcept>
+
+#include "argparse/argparse.hpp"
+#include "bcrypt.h"
+#include "jsonhelper.hh"
+#include "fmt/core.h"
+#include "httplib.h"
+#include "nlohmann/json.hpp"
+#include "sqlwriter.hh"
+
+#include "support.hh"
 using namespace std;
 
 /*
