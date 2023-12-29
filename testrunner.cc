@@ -1,8 +1,15 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <algorithm> // std::move() and friends
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <unistd.h> //unlink(), usleep()
+
 #include "doctest.h"
-#include "support.hh"
 #include "httplib.h"
 #include "nlohmann/json.hpp"
+
+#include "support.hh"
 
 using namespace std;
 
@@ -20,7 +27,7 @@ TEST_CASE("cookie test") {
   CHECK(res.size() == 3);
   CHECK(res["test"]=="1235");
   CHECK(res["test2"]=="9876");
-  CHECK(res["boeh"]=="bah");  
+  CHECK(res["boeh"]=="bah");
 }
 
 
