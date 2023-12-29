@@ -1,8 +1,9 @@
-#include "support.hh"
-#include <regex>
 #include <iostream>
-#include <cryptopp/base64.h> 
+#include <regex>
 
+#include "cryptopp/base64.h"
+
+#include "support.hh"
 
 using namespace std;
 // turn "abcd=1234; defgh=6934"3 into a map
@@ -43,4 +44,3 @@ string makeShortID(int64_t id)
                   ); // StringSource
   return encoded;
 }
- 
