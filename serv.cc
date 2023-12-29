@@ -1,14 +1,16 @@
 #define CPPHTTPLIB_USE_POLL
+#include <exception>
 #include <iostream>
 #include <mutex>
 #include <random>
 #include <stdexcept>
+#include <string>
 
 #include "argparse/argparse.hpp"
 #include "bcrypt.h"
-#include "jsonhelper.hh"
 #include "fmt/core.h"
 #include "httplib.h"
+#include "jsonhelper.hh"
 #include "nlohmann/json.hpp"
 #include "sqlwriter.hh"
 
