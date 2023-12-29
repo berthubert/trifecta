@@ -1,16 +1,20 @@
 #define CPPHTTPLIB_USE_POLL
-#include "httplib.h"
-#include "sqlwriter.hh"
-#include "nlohmann/json.hpp"
-#include "bcrypt.h"
+#include <exception>
 #include <iostream>
 #include <mutex>
-#include "jsonhelper.hh"
-#include "support.hh"
-#include <fmt/core.h>
-#include <stdexcept>
-#include "argparse/argparse.hpp" 
 #include <random>
+#include <stdexcept>
+#include <string>
+
+#include "argparse/argparse.hpp"
+#include "bcrypt.h"
+#include "fmt/core.h"
+#include "httplib.h"
+#include "jsonhelper.hh"
+#include "nlohmann/json.hpp"
+#include "sqlwriter.hh"
+
+#include "support.hh"
 using namespace std;
 
 /*
@@ -43,7 +47,7 @@ std::string& testrunnerPw()
 struct LockedSqw
 {
   LockedSqw(const LockedSqw&) = delete;
-  
+
   SQLiteWriter& sqw;
   std::mutex& sqwlock;
   vector<unordered_map<string, MiniSQLite::outvar_t>> query(const std::string& query, const std::initializer_list<SQLiteWriter::var_t>& values ={})
@@ -115,7 +119,7 @@ void Users::createUser(const std::string& user, const std::string& password, con
   d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
-void Users::delUser(const std::string& user) 
+void Users::delUser(const std::string& user)
 {
   d_lsqw.query("delete from users where user=?", {user});
 }
@@ -150,7 +154,7 @@ public:
     catch(...){}
     return "";
   }
-  
+
   string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip)
   {
     string sessionid=makeShortID(getRandom63())+makeShortID(getRandom63());
@@ -199,7 +203,7 @@ struct AuthReqs
     return false;
   }
 
-  void dropSession(const httplib::Request &req) 
+  void dropSession(const httplib::Request &req)
   {
     d_sessions.dropSession(getSessionID(req));
   }
@@ -211,7 +215,7 @@ struct AuthReqs
       return req.get_header_value("X-Real-IP");
     return req.remote_addr;
   }
-  
+
   string getUser(const httplib::Request &req)  const
   {
     string ip=getIP(req), agent= req.get_header_value("User-Agent");
@@ -273,7 +277,7 @@ bool shouldShow(Users& u, std::string& user, unordered_map<string, MiniSQLite::o
   // admin and owner can always see a post
   if(get<string>(row["user"]) == user || u.userHasCap(user, "admin"))
     return true;
-  
+
   if(!get<int64_t>(row["public"]))
     return false;
 
@@ -290,7 +294,7 @@ int trifectaMain(int argc, const char**argv)
   args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").flag();
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
   args.add_argument("--local-address", "-l").help("address to listen on").default_value("0.0.0.0");
-  
+
   try {
     args.parse_args(argc, argv);
   }
@@ -310,13 +314,13 @@ int trifectaMain(int argc, const char**argv)
   std::mutex sqwlock;
   LockedSqw lsqw{sqw, sqwlock};
   Users u(lsqw);
-  
+
   if(args["--rnd-admin-password"] == true) {
     bool changed=false;
     string pw = makeShortID(getRandom63());
 
     testrunnerPw() = pw;     // for the testrunner
-    
+
     try {
       if(u.userHasCap("admin", "admin")) {
         cout<<"Admin user existed already, updating password to: "<< pw << endl;
@@ -326,7 +330,7 @@ int trifectaMain(int argc, const char**argv)
     }
     catch(...) {
     }
-      
+
     if(!changed) {
       fmt::print("Creating user admin with password: {}\n", pw);
       u.createUser("admin", pw, "", true);
@@ -339,7 +343,7 @@ int trifectaMain(int argc, const char**argv)
       fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
     else {
       fmt::print("Admin users: ");
-      for(auto& a: admins) 
+      for(auto& a: admins)
         fmt::print("{} ", get<string>(a["user"]));
       fmt::print("\n");
     }
@@ -347,16 +351,16 @@ int trifectaMain(int argc, const char**argv)
   catch(...) {
     fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
   }
-  
+
   httplib::Server svr;
-  
+
   svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
     string reason;
     try {
       std::rethrow_exception(ep);
     } catch (std::exception &e) {
       reason = fmt::format("An error occurred: {}", e.what());
-    } catch (...) { 
+    } catch (...) {
       reason = "An unknown error occurred";
     }
     cout<<req.path<<": 500 created for "<<reason<<endl;
@@ -364,9 +368,9 @@ int trifectaMain(int argc, const char**argv)
     res.set_content(html, "text/html");
     res.status = 500;
   });
-  
+
   svr.set_mount_point("/", args.get<string>("html-dir"));
-  
+
   Sessions sessions(lsqw);
   AuthReqs a(sessions, u);
 
@@ -387,20 +391,19 @@ int trifectaMain(int argc, const char**argv)
       j["message"]="welcome!";
       lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
       lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
-              
     }
     else {
       cout<<"Wrong user or password"<<endl;
       j["message"]="Wrong user or password";
       lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
     }
-    
+
     res.set_content(j.dump(), "application/json");
   });
 
   svr.Get("/join-session/:sessionid", [&lsqw, a](const auto& req, auto& res) {
     string sessionid = req.path_params.at("sessionid");
-    
+
     res.set_header("Set-Cookie",
                    "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
     res.set_header("Location", "../");
@@ -433,28 +436,28 @@ int trifectaMain(int argc, const char**argv)
     }
     res.set_content(j.dump(), "application/json");
   });
-  
+
   svr.Get("/i/:imgid", [&lsqw, a, &u](const auto& req, auto& res) {
     string imgid = req.path_params.at("imgid");
     string user;
     res.status = 404;
-    
+
     try {
       user = a.getUser(req);
     }catch(...){}
-    
+
     auto results = lsqw.query("select image,public,content_type, posts.publicUntilTstamp, posts.user from images,posts where images.id=? and posts.id = images.postId ", {imgid});
-    
+
     if(results.size() != 1) {
       lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}, {"meta", "no such image"}}, "log");
       return;
     }
-    
+
     if(!shouldShow(u, user, results[0])) {
       lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
       return;
     }
-          
+
     auto img = get<vector<uint8_t>>(results[0]["image"]);
     string s((char*)&img[0], img.size());
     res.set_content(s, get<string>(results[0]["content_type"]));
@@ -482,10 +485,9 @@ int trifectaMain(int argc, const char**argv)
       j["user"] = user;
       j["admin"]=u.userHasCap(user, "admin");
     }
-    
+
     res.set_content(j.dump(), "application/json");
   });
-  
 
   {
     AuthSentinel as(a, "valid-user");
@@ -505,7 +507,7 @@ int trifectaMain(int argc, const char**argv)
         if(access.empty())
           throw std::runtime_error("Attempt to upload to post that's not ours!");
       }
-      
+
       for(auto&& [name, f] : req.files) {
         fmt::print("name {}, filename {}, content_type {}, size {}, postid {}\n", f.name, f.filename, f.content_type, f.content.size(), postId);
         if(f.content_type.substr(0,6) != "image/" || f.filename.empty()) {
@@ -535,7 +537,7 @@ int trifectaMain(int argc, const char**argv)
         lsqw.addValue({{"action", "upload"} , {"user", a.getUser(req)}, {"imageId", imgid}, {"ip", a.getIP(req)}, {"tstamp", tstamp}}, "log");
       }
     });
-    
+
     svr.Post("/delete-image/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't delete if not logged in");
@@ -544,7 +546,7 @@ int trifectaMain(int argc, const char**argv)
       string user = a.getUser(req);
       cout<<"Attemping to delete image "<<imgid<<" for user " << user << endl;
       checkImageOwnership(lsqw, u, user, imgid);
-      
+
       lsqw.query("delete from images where id=?", {imgid});
       lsqw.addValue({{"action", "delete-image"}, {"ip", a.getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     });
@@ -564,7 +566,7 @@ int trifectaMain(int argc, const char**argv)
       }
       res.set_content(j.dump(), "application/json");
     });
-      
+
     svr.Post("/set-post-title/(.+)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't set post title if not logged in");
@@ -579,7 +581,7 @@ int trifectaMain(int argc, const char**argv)
 
       if(get<string>(rows[0]["user"]) != user && !u.userHasCap(user, "admin"))
          throw std::runtime_error("Attempting to change title for post that is not yours and you are not admin");
-      
+
       lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
       lsqw.addValue({{"action", "set-post-title"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
     });
@@ -603,12 +605,12 @@ int trifectaMain(int argc, const char**argv)
       auto pwfield = req.get_file_value("password");
       if(pwfield.content.empty())
         throw std::runtime_error("Can't set an empty password");
-      
+
       string user = a.getUser(req);
       cout<<"Attemping to set password for user "<<user<<endl;
       u.changePassword(user, pwfield.content);
     });
-    
+
     svr.Post("/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, a, &u](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Can't change public setting if not logged in");
@@ -620,7 +622,7 @@ int trifectaMain(int argc, const char**argv)
 
       if(!canTouchPost(lsqw, u, user, postid))
         throw std::runtime_error("Attempt to change public status of post you can't touch");
-      
+
       if(req.matches.size() > 3) {
         string untilStr = req.matches[3];
         if(!untilStr.empty())
@@ -642,7 +644,7 @@ int trifectaMain(int argc, const char**argv)
       string postid = req.path_params.at("postid");
 
       j["can_touch_post"] = 0;
-      
+
       try {
         if(a.check(req)) {
           string user = a.getUser(req);
@@ -652,14 +654,14 @@ int trifectaMain(int argc, const char**argv)
       catch(exception&e) { cout<<"No session for checking access rights: "<<e.what()<<"\n";}
       res.set_content(j.dump(), "application/json");
     });
-    
+
     svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       if(!a.check(req)) { // saves a 5xx error
         res.set_content("[]", "application/json");
         return;
       }
       lsqw.queryJ(res, "select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {a.getUser(req)});
-    });  
+    });
 
     svr.Post("/logout", [&lsqw, a](const httplib::Request &req, httplib::Response &res) mutable {
       if(a.check(req)) {
@@ -670,7 +672,7 @@ int trifectaMain(int argc, const char**argv)
       }
     });
     // ponder adding logout-everywhere
-    
+
     {
       AuthSentinel as(a, "admin");
       svr.Get("/all-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
@@ -693,7 +695,7 @@ int trifectaMain(int argc, const char**argv)
         }
         lsqw.queryJ(res, "select * from sessions", {});
       });
-      
+
       svr.Post("/create-user", [&lsqw, &sessions, &u, a](const httplib::Request &req, httplib::Response &res) {
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");
@@ -702,7 +704,7 @@ int trifectaMain(int argc, const char**argv)
         string password1 = req.get_file_value("password1").content;
         string user = req.get_file_value("user").content;
         nlohmann::json j;
-        
+
         if(password1.empty() || user.empty()) {
           j["ok"]=false;
           j["message"] = "User or password field empty";
@@ -739,12 +741,12 @@ int trifectaMain(int argc, const char**argv)
       auto pwfield = req.get_file_value("password");
       if(pwfield.content.empty())
         throw std::runtime_error("Can't set an empty password");
-      
+
       string user = req.get_file_value("user").content;
       cout<<"Attemping to set password for user "<<user<<endl;
       u.changePassword(user, pwfield.content);
     });
-    
+
     svr.Post("/kill-session/([^/]+)", [&lsqw, a](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Not admin");
@@ -774,7 +776,7 @@ int trifectaMain(int argc, const char**argv)
 
   string laddr = args.get<string>("local-address");
   cout<<"Will listen on http://"<< laddr <<":"<<args.get<int>("port")<<endl;
-  
+
   svr.set_socket_options([](socket_t sock) {
    int yes = 1;
    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
