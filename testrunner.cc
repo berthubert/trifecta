@@ -191,6 +191,7 @@ TEST_CASE("basic web tests") {
 
   CHECK(j["title"] == "this is the title");
   CHECK(j["public"] == 1);
+  CHECK(j["can_touch_post"] == 0);
   CHECK(j["publicUntil"] == 0);
 
   CHECK(j["images"][0]["id"]==upload1);
@@ -200,6 +201,15 @@ TEST_CASE("basic web tests") {
   CHECK(j["images"][1]["caption"] == "this is a second caption");
 
   ///////////
+
+  ////
+  res = cli.Get("/getPost/"+postId, headers);
+  REQUIRE(res);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["can_touch_post"] == 1); //  as admin
+
+  ///
+  
 
   res = cli.Post("/logout", headers);
   REQUIRE(res != 0);
@@ -330,12 +340,14 @@ TEST_CASE("web visibility tests") {
   cout<<"dump: " << j.dump()<<endl;
   REQUIRE(j["images"].size() == 1);
   CHECK(j["images"][0]["id"] == upload1);
+  CHECK(j["can_touch_post"] == 1);
 
   res = cli.Get("/i/"+upload1); // no cookie
   REQUIRE(res != 0); CHECK(res->status == 404);
 
   res = cli.Get("/i/"+upload1, pietSession); // with cookie
-  REQUIRE(res != 0); CHECK(res->body ==items[0].content);
+  REQUIRE(res != 0);
+  CHECK(res->body ==items[0].content);
 
   res = cli.Get("/i/"+upload1, adminSession); // admin
   REQUIRE(res != 0); CHECK(res->body == items[0].content);
@@ -371,6 +383,7 @@ TEST_CASE("web visibility tests") {
   REQUIRE(res != 0);
   j = nlohmann::json::parse(res->body);
   CHECK(j["publicUntil"]==newTime);
+  CHECK(j["can_touch_post"]==0);
 
   // admin makes post non-public, but confusingly tries to also set a time limit
   res = cli.Post("/set-post-public/"+postId+"/0/" + to_string(time(0)+60), adminSession);

@@ -22,10 +22,6 @@ Todo:
   Configuration items in database
   Enable password reset email
 
-  implement expiry in UI
-     public=0 really means that
-     public=1 means "public until pubicUntil if non-zero"
-
   implement change my password in UI
   if a user is disabled, do images/posts turn into 404s?
 
@@ -431,7 +427,10 @@ int trifectaMain(int argc, const char**argv)
       j["public"]=get<int64_t>(post[0]["public"]);
       time_t until = get<int64_t>(post[0]["publicUntilTstamp"]);
       j["publicUntil"]=until;
-
+      if(!user.empty())
+        j["can_touch_post"] = canTouchPost(lsqw, u, user, postid) ? 1 : 0;
+      else
+        j["can_touch_post"] = 0;
       j["publicUntilExpired"] = until && (time(0) < until);
     }
     res.set_content(j.dump(), "application/json");
@@ -639,6 +638,7 @@ int trifectaMain(int argc, const char**argv)
       lsqw.addValue({{"action", "change-post-public"}, {"ip", a.getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     });
 
+
     svr.Get("/can_touch_post/:postid", [&lsqw, a, &u](const httplib::Request &req, httplib::Response &res) {
       nlohmann::json j;
       string postid = req.path_params.at("postid");
@@ -654,6 +654,8 @@ int trifectaMain(int argc, const char**argv)
       catch(exception&e) { cout<<"No session for checking access rights: "<<e.what()<<"\n";}
       res.set_content(j.dump(), "application/json");
     });
+      
+      
 
     svr.Get("/my-images", [&lsqw, a](const httplib::Request &req, httplib::Response &res) {
       if(!a.check(req)) { // saves a 5xx error
@@ -662,7 +664,7 @@ int trifectaMain(int argc, const char**argv)
       }
       lsqw.queryJ(res, "select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {a.getUser(req)});
     });
-
+    
     svr.Post("/logout", [&lsqw, a](const httplib::Request &req, httplib::Response &res) mutable {
       if(a.check(req)) {
         lsqw.addValue({{"action", "logout"}, {"user", a.getUser(req)}, {"ip", a.getIP(req)}, {"tstamp", time(0)}}, "log");
