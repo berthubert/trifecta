@@ -108,14 +108,19 @@ namespace {
       */
     }
     std::thread d_t;
-  } g_tfs;
+  };
+  auto& getTFS()
+  {
+    static TrifectaServer tfs;
+    return tfs;
+  }
 }
 
 TEST_CASE("basic web tests") {
 
   httplib::Client cli("127.0.0.1", 9999);
 
-  auto headers = g_tfs.doLogin();
+  auto headers = getTFS().doLogin();
 
   auto res = cli.Get("/status", headers);
   REQUIRE(res != 0);
@@ -223,13 +228,13 @@ auto createAndLoginUser(httplib::Client& cli, const httplib::Headers& adminSessi
   if(!res || res->status != 200)
     throw std::runtime_error("Client call to create-user failed");
 
-  return g_tfs.doLogin(user, password);
+  return getTFS().doLogin(user, password);
 }
 
 TEST_CASE("post deletion tests") {
   httplib::Client cli("127.0.0.1", 9999);
 
-  auto adminSession = g_tfs.doLogin();
+  auto adminSession = getTFS().doLogin();
   auto janSession = createAndLoginUser(cli, adminSession, "jan", "jan1234");
   auto henkSession = createAndLoginUser(cli, adminSession, "henk", "henk1234");
 
@@ -261,7 +266,7 @@ TEST_CASE("post deletion tests") {
 TEST_CASE("web visibility tests") {
   httplib::Client cli("127.0.0.1", 9999);
 
-  auto adminSession = g_tfs.doLogin();
+  auto adminSession = getTFS().doLogin();
 
   // create user piet
   httplib::MultipartFormDataItems items2 = {
@@ -272,7 +277,7 @@ TEST_CASE("web visibility tests") {
   auto res = cli.Post("/create-user", adminSession, items2);
   REQUIRE(res != 0);
 
-  auto pietSession = g_tfs.doLogin("piet", "piet123piet");
+  auto pietSession = getTFS().doLogin("piet", "piet123piet");
   res = cli.Get("/status", pietSession);
   REQUIRE(res != 0);
 
@@ -290,7 +295,7 @@ TEST_CASE("web visibility tests") {
   res = cli.Post("/create-user", adminSession, items3);
   REQUIRE(res != 0);
 
-  auto karelSession = g_tfs.doLogin("karel", "karel123karel");
+  auto karelSession = getTFS().doLogin("karel", "karel123karel");
   res = cli.Get("/status", pietSession);
   REQUIRE(res != 0);
 
@@ -387,7 +392,7 @@ TEST_CASE("web visibility tests") {
 TEST_CASE("web abuse tests") {
   httplib::Client cli("127.0.0.1", 9999);
 
-  auto adminSession = g_tfs.doLogin();
+  auto adminSession = getTFS().doLogin();
 
   // create user john
   httplib::MultipartFormDataItems items1 = {
@@ -398,7 +403,7 @@ TEST_CASE("web abuse tests") {
   auto res = cli.Post("/create-user", adminSession, items1);
   REQUIRE(res != 0);
 
-  auto johnSession = g_tfs.doLogin(items1[0].content, items1[1].content);
+  auto johnSession = getTFS().doLogin(items1[0].content, items1[1].content);
 
   // create user barak
   httplib::MultipartFormDataItems items2 = {
@@ -409,7 +414,7 @@ TEST_CASE("web abuse tests") {
   res = cli.Post("/create-user", adminSession, items2);
   REQUIRE(res != 0);
 
-  auto barakSession = g_tfs.doLogin(items2[0].content, items2[1].content);
+  auto barakSession = getTFS().doLogin(items2[0].content, items2[1].content);
 
   // user john is going to upload a photo
   httplib::MultipartFormDataItems items3 = {
@@ -466,7 +471,7 @@ TEST_CASE("web abuse tests") {
 TEST_CASE("web admin tests") {
   httplib::Client cli("127.0.0.1", 9999);
 
-  auto adminSession = g_tfs.doLogin();
+  auto adminSession = getTFS().doLogin();
 
   httplib::MultipartFormDataItems items = {
     { "file", "test content 123213213", "hello3.png", "image/png" }
@@ -490,4 +495,42 @@ TEST_CASE("web admin tests") {
       found=true;
   }
   CHECK(found == true);
+}
+
+TEST_CASE("change my password") {
+  //  auto createAndLoginUser(httplib::Client& cli, const httplib::Headers& adminSession, const std::string& user, const std::string& password)
+  httplib::Client cli("127.0.0.1", 9999);
+
+  auto adminSession = getTFS().doLogin();
+  auto harrySession = createAndLoginUser(cli, adminSession, "harry", "harrypw");
+
+  httplib::MultipartFormDataItems items = {
+    { "password", "newharrypw", "password"}
+  };
+  
+  
+  cli.Post("/change-my-password", harrySession, items);
+
+  auto newHarrySession = getTFS().doLogin("harry", "newharrypw");
+
+  auto res = cli.Get("/status", newHarrySession);
+  REQUIRE(res != 0);
+
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["admin"]==false);
+  CHECK(j["user"]=="harry");
+  CHECK(j["login"]==true);
+}
+
+TEST_CASE("email test" * doctest::skip(true)) {
+  sendAsciiEmailAsync("bert@hubertnet.nl", "bert@hubertnet.nl", "Le Sujet",
+                 R"(Hallo,
+
+Dit is een test van meerdere regels.
+
+.
+
+Nog een paragraaf!
+)");
+
 }
