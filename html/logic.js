@@ -87,7 +87,7 @@ function doSetPostTitle(f, el) {
     const formData = new FormData();
     formData.append('title', el.value);
 
-    fetch("set-post-title/" + f.postId, { method: "POST", body: formData });
+    fetch(`set-post-title/${f.post.id}`, { method: "POST", body: formData });
 }
 
 function doLogin(el, f) {
@@ -106,20 +106,21 @@ function doLogin(el, f) {
 
 function doDeleteImage(f, imageid) {
     if (window.confirm("Do you really want to delete this image?")) {
-        fetch("delete-image/" + imageid, { method: "POST" })
+        fetch(`delete-image/${imageid}`, { method: "POST" })
             .then(function (res) {
                 if (res.ok) {
-                    f.images = f.images.filter(function (item) {
+                    f.post.images = f.post.images.filter(function (item) {
                         return item.id !== imageid;
                     })
                 }
+                getMyImageList(f);
             });
     }
 }
 
-function doDeletePost(f, postid) {
+function doDeletePost(f) {
     if (window.confirm("Do you really want to delete this post?")) {
-        fetch("delete-post/" + postid, { method: "POST" })
+        fetch(`delete-post/${f.post.id}`, { method: "POST" })
             .then(function (res) {
                 if (res.ok) {
                     window.location.href = "./";
@@ -151,24 +152,25 @@ function doChangePublic(f, postid, el) {
     let val = el.checked ? "1" : "0";
     el.disabled = true; // disable while transaction is running
 
-    fetch("set-post-public/" + postid + "/" + val, { method: "POST" }).then(function (res) {
+    fetch(`set-post-public/${postid}/${val}`, { method: "POST" }).then(function (res) {
         el.disabled = false;
 
         if (res.ok) {
-            el.checked = !el.checked;
-            f.post.public = el.checked ? 1 : 0; // we need to propagate this manually
-            // because we prevented normal event processing
+            if (f.post.id == postid) { // this method is used on the post itself, and on the list of images.
+                getPost(f);             // if we change the post we're currently on, then we should load that post again.
+            }
             getMyImageList(f);
         }
+        // TODO: error handling
     });
 }
 
-//todo: remove el
-function doChangePublicUntil(f, postid, el, seconds) {
+
+function doChangePublicUntil(f, seconds) {
     let limit = (Date.now() / 1000 + seconds).toFixed();
     if (seconds == 0)
         limit = 0;
-    fetch(`set-post-public/${postid}/${f.post.public}/${limit}`, { method: "POST" }).then(function (res) {
+    fetch(`set-post-public/${f.post.id}/${f.post.public}/${limit}`, { method: "POST" }).then(function (res) {
         if (res.ok) {
             f.post.publicuntil = limit; // we need to propagate this manually
             getMyImageList(f);
@@ -201,9 +203,9 @@ function processCaptionKey(f, el, e, imageid) {
 async function uploadFile(clipboardItem, f) {
     if (clipboardItem.type.startsWith('image/')) {
         const formData = new FormData();
-        if (f.postId != '') {
-            console.log("Passing known postId: " + f.postId);
-            formData.append('postId', f.postId);
+        if (f.post.id != null) {
+            console.log("Passing known postId: " + f.post.id);
+            formData.append('postId', f.post.id);
         }
         formData.append('file', clipboardItem, clipboardItem.name);
 
@@ -220,10 +222,10 @@ async function uploadFile(clipboardItem, f) {
                         f.post.public = data.public;
                         f.post.publicuntil = data.publicUntil;
 
-                        console.log("Set postId to " + f.postId);
+                        console.log("Set postId to " + f.post.id);
                         f.post.can_touch_post = 1;
                         const url = new URL(window.location.href);
-                        url.searchParams.set("p", data.postId);
+                        url.searchParams.set("p", f.post.id);
                         history.pushState({}, "", url);
                         getMyImageList(f);
                     });
@@ -253,7 +255,6 @@ async function getImageFromPaste(f, e) {
     if (files.length > 0) {
         await uploadFile(files[0], f);
         for (let n = 1; n < files.length; ++n) {
-            console.log("Start upload " + n);
             uploadFile(files[n], f);
         }
     }

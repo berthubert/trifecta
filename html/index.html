@@ -63,41 +63,40 @@
         <div id="posts">
           <template x-if="post.can_touch_post">
             <div>
-              <input class="postTitle" x-model="postTitle" placeholder="Give your post a title"
+              <input class="postTitle" x-model="post.title" placeholder="Give your post a title"
                 @keyup="doSetPostTitle($data, $el)">
               <br />
-              <button @click="doDeletePost($data, postId)">Delete post</button>
+              <button @click="doDeletePost($data)">Delete post</button>
               <label for="publicCB">Public:</label>
-              <input name="publicCB" @click.prevent="doChangePublic($data, postId, $el)" type="checkbox"
-                x-bind:checked="postPublic" x-model="postPublic" />
-              <button @click="doChangePublicUntil($data, postId, $el, 300)" x-show="postPublic">5 minutes</button>
-              <button @click="doChangePublicUntil($data, postId, $el, 3600)" x-show="postPublic">1 hour</button>
-              <button @click="doChangePublicUntil($data, postId, $el, 86400)" x-show="postPublic">1 day</button>
-              <button @click="doChangePublicUntil($data, postId, $el, 30*86400)" x-show="postPublic">1 month</button>
-              <button @click="doChangePublicUntil($data, postId, $el, 0)" x-show="postPublic">Forever</button>
+              <input name="publicCB" @click.prevent="doChangePublic($data, $el)" type="checkbox"
+                x-bind:checked="post.public" x-model="post.public" />
+              <button @click="doChangePublicUntil($data, post.id, 300)" x-show="post.public">5 minutes</button>
+              <button @click="doChangePublicUntil($data, post.id, 3600)" x-show="post.public">1 hour</button>
+              <button @click="doChangePublicUntil($data, post.id, 86400)" x-show="post.public">1 day</button>
+              <button @click="doChangePublicUntil($data, post.id, 30*86400)" x-show="post.public">1 month</button>
+              <button @click="doChangePublicUntil($data, post.id, 0)" x-show="post.public">Forever</button>
               <span
-                x-text="if(postPublicUntil > 0 && postPublic && postPublicUntil*1000 >= Date.now()) return 'Until '+new Date(postPublicUntil * 1000).toLocaleString()+ ' your time'; else return '';"></span>
-              <span style="color: red;"
-                x-text="if(postPublicUntil > 0 && postPublicUntil*1000 < Date.now()) return 'PUBLIC TIME LIMIT EXPIRED';"></span>
+                x-text="if(post.publicuntil > 0 && post.public && post.publicuntil*1000 >= Date.now()) return 'Until '+new Date(post.publicuntil * 1000).toLocaleString()+ ' your time'; else return '';"></span>
+              <span class="warning" x-text="if(post.publicuntil > 0 && post.publicuntil*1000 < Date.now()) return 'PUBLIC TIME LIMIT EXPIRED';"></span>
             </div>
           </template>
           <template x-if="!post.can_touch_post">
-            <h2 class="postTitle" x-text="postTitle"></h2>
+            <h2 class="postTitle" x-text="post.title"></h2>
           </template>
 
           <template x-show="canShowImage" x-for="g in post.images">
             <div>
               <a x-bind:href="'i/'+g.id"><img x-cloak x-bind:alt="g.caption" x-bind:src="'i/'+g.id"></a>
               <div class="imagecontrols">
-                <template x-if="can_touch_post">
+                <template x-if="post.can_touch_post">
                   <textarea class="imageCaption" x-model="g.caption" placeholder="Give your image a caption" rows="4"
                     cols="70" @keyup="processCaptionKey($data, $el, $event, g.id)"></textarea>
                 </template>
-                <template x-if="!can_touch_post">
+                <template x-if="!post.can_touch_post">
                   <p class="imageCaption" x-text="g.caption"></p>
                 </template>
 
-                <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
+                <button @click="doDeleteImage($data, g.id)" x-show="post.can_touch_post">Delete image</button>
               </div>
             </div>
           </template>
@@ -123,10 +122,9 @@
                 <th>Paste ID</th>
                 <th>Type</th>
                 <th>Size</th>
-
                 <th>Until</th>
                 <th>Thumbnail</th>
-                <th>Public</th>
+                <th>Public</th><!-- This is a post public flag, which is really confusing from the UX perspective -->
                 <th>Del</th>
               </tr>
               <template x-for="g in myimages">
@@ -143,7 +141,7 @@
                   <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
                       x-bind:checked="g.public" />
                   </td>
-                  <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">
+                  <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id);">
                   </td>
                 </tr>
               </template>

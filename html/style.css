@@ -36,6 +36,7 @@
     --clr-btn-surface-text: var(--color-primary-5);
 
     --clr-txt-error: #F00;
+    --clr-txt-warning: #FFA500;
 
     --size-xxs: 0.2em;
     --size-xs: 0.5em;
@@ -220,4 +221,8 @@ button:hover {
 
 .error {
     color: var(--clr-txt-error);
+}
+
+.warning {
+    color: var(--clr-txt-warning);
 }
