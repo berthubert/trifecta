@@ -17,7 +17,6 @@
                  user: {}, 
                  myimages: [],
                  showSection: 'home',
-                 get canShowImage() { return( this.post.images.length > 0);},
 }" x-init="doPageLoad($data);">
     <header>
       <h1><a href="./">Trifecta</a></h1>
@@ -84,7 +83,7 @@
                 <h2 class="postTitle" x-text="post.title"></h2>
               </template>
 
-              <template x-show="canShowImage" x-for="g in post.images">
+              <template x-show="post.images.length > 0" x-for="g in post.images">
                 <div>
                   <a x-bind:href="'i/'+g.id"><img x-cloak x-bind:alt="g.caption" x-bind:src="'i/'+g.id"></a>
                   <div class="imagecontrols">
