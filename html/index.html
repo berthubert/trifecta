@@ -102,11 +102,12 @@
             </div>
 
           </template>
+
           <template x-if="user.loggedon">
             <div id="paste" @paste="getImageFromPaste($data, $event)" @drop.prevent="processDrop($data, $event)"
               @dragover.prevent="">
-              <h2>Paste your image here</h2>
-              <p>Simply paste your picture here.</p>
+              <h2>Drop/paste your image here</h2>
+              <p>Simply drag your images and drop them on this section, or paste the picture into this area.</p>
             </div>
           </template>
 
