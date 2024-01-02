@@ -81,9 +81,10 @@ h1>a {
 div#container {
     height: 100dvh;
     display: grid;
-    grid-template-rows:auto 1fr auto;
+    grid-template-rows:auto auto 1fr auto;
     grid-template-areas: 
     "header"
+    "navigation"
     "content"
     "footer";
 }
@@ -115,14 +116,19 @@ header {
 header>div {
     margin-left: auto;
 }
-
+nav {
+    grid-area: navigation;
+}
 
 div#content {
-    grid-area: content;
     display: flex;
     align-items: center;
     flex-direction: column;
     padding: var(--size-xs);
+}
+
+div#content {
+    grid-area: content;
 }
 
 #userfeedback>span {

@@ -2,16 +2,32 @@
 
 
 async function doPageLoad(f) {
+    if (window.location.hash != "") {
+        f.showSection = window.location.hash.substring(1);
+    }
 
+    console.log(window.location.hash);
     await getLoginStatus(f);
     getMyImageList(f);
     getPost(f);
     if (f.user.isadmin === true) {
         console.log("is admin user");
     }
-    
 }
 
+function ShowMessage(f, msg, error = undefined) {
+    f.message2user = msg;
+    const messagespan = document.querySelector("#userfeedback > span");
+    messagespan.classList.remove("error");
+
+    if (error != undefined) {
+        console.log(error);
+        messagespan.classList.add("error");
+    }
+}
+function ClearMessage(f) {
+    f.message2user = "";
+}
 
 
 async function getLoginStatus(f) {
@@ -95,12 +111,13 @@ function doLogin(el, f) {
     fetch("login", { method: "POST", body: data })
         .then(response => response.json()).then(data => {
             if (data.ok) {
-                f.message2user = "";
+                ClearMessage(f);
                 getLoginStatus(f);
                 getMyImageList(f);
             }
-            else
-                f.message2user = data.message;
+            else {
+                ShowMessage(f, data.message, response);
+            }
         });
 }
 
@@ -130,7 +147,7 @@ function doDeletePost(f) {
 }
 
 function doKillSession(f, sessionid) {
-    fetch("kill-session/" + sessionid, { method: "POST" }).then(function (res) {
+    fetch(`kill-session/${sessionid}`, { method: "POST" }).then(function (res) {
         if (res.ok) {
             getSessionList(f);
         }
@@ -160,8 +177,9 @@ function doChangePublic(f, postid, el) {
                 getPost(f);             // if we change the post we're currently on, then we should load that post again.
             }
             getMyImageList(f);
+        } else {
+            ShowMessage(f, "Failed to change post public status", res);
         }
-        // TODO: error handling
     });
 }
 
@@ -174,6 +192,9 @@ function doChangePublicUntil(f, seconds) {
         if (res.ok) {
             f.post.publicuntil = limit; // we need to propagate this manually
             getMyImageList(f);
+        }
+        else {
+            ShowMessage(f, "Failed to change post public until", res);
         }
     });
 }
@@ -230,16 +251,16 @@ async function uploadFile(clipboardItem, f) {
                         getMyImageList(f);
                     });
                 } else {
-                    console.error('Error uploading file:', response.statusText);
+                    ShowMessage(f, "Error uploading file.", response);
                 }
             })
             .catch(error => {
-                console.error('Network error during file upload', error);
+                ShowMessage(f, "Network error duing file upload.", error);
             });
     }
-    else
-        console.log("Don't know how to deal with paste of " + clipboardItem.type);
-
+    else {
+        ShowMessage(f, `We don't support the paste type ${clipboardItem.type}`);
+    }
 }
 
 // this uploads an image, possibly to an existing post. If there is no post yet, it receives
@@ -247,7 +268,7 @@ async function uploadFile(clipboardItem, f) {
 async function getImageFromPaste(f, e) {
     e.preventDefault();
     if (!f.user.loggedon) {
-        f.message2user = "Please login to paste an image.";
+        ShowMessage(f, "Please login to paste an image.");
         return;
     }
 
@@ -262,7 +283,7 @@ async function getImageFromPaste(f, e) {
 
 async function processDrop(f, e) {
     if (!f.user.loggedon) {
-        f.message2user = "Please login to paste an image.";
+        ShowMessage(f, "Please login to paste an image.");
         return;
     }
     let files = e.dataTransfer.files;
@@ -279,9 +300,9 @@ function doCreateUser(el, f) {
     let user = el[0].value;
     let pass1 = el[1].value;
     let pass2 = el[2].value;
-    f.message2user = "";
+    ClearMessage(f);
     if (pass1 != pass2) {
-        f.message2user = "<span class='error'>Passwords do not match</span>";
+        ShowMessage(f, "Passwords do not match", true);
         return;
     }
 
@@ -289,14 +310,16 @@ function doCreateUser(el, f) {
         if (response.ok) {
             response.json().then(data => {
                 if (data.ok) {
-                    f.message2user = "User created";
+                    ShowMessage(f, "User created");
                     getUserList(f);
                 }
-                else
-                    f.message2user = data.message;
+                else {
+                    ShowMessage(f, `Could not create user: ${data.message}`, response);
+                }
             });
         }
-        else
-            f.message2user = "Error sending creation request";
+        else {
+            ShowMessage(f, "Failed to create user.", response);
+        }
     });
 }
