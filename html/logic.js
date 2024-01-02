@@ -246,7 +246,7 @@ async function uploadFile(clipboardItem, f) {
 // the post that was created for us
 async function getImageFromPaste(f, e) {
     e.preventDefault();
-    if (!f.loggedon) {
+    if (!f.user.loggedon) {
         f.message2user = "Please login to paste an image.";
         return;
     }

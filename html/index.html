@@ -15,16 +15,7 @@
                  message2user: '', 
                  post: {},
                  user: {}, 
-                 loggedon: false, 
-                 images: [],
                  myimages: [],
-                 postId: '',
-                 postTitle: '',
-                 postPublic: 0,
-                 postPublicUntil: 0,
-                 can_touch_post: 0,
-
-                 get canDelImage() { return( this.loggedon && this.postid != '');},
                  get canShowImage() { console.log(this.post); return( this.post.images.length > 0);},
 }" x-init="doPageLoad($data);">
     <header>
