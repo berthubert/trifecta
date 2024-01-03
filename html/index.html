@@ -13,32 +13,23 @@
 <body>
   <div id="container" x-data="{
                  message2user: '', 
-                 user: '', 
-                 loggedon: false, 
-                 images: [],
+                 post: {},
+                 user: {}, 
                  myimages: [],
-                 postId: '',
-                 postTitle: '',
-                 postPublic: 0,
-                 postPublicUntil: 0,
-                 can_touch_post: 0,
-
-                 get canDelImage() { return( this.loggedon && this.postid != '');},
-                 get canShowImage() { return( this.images.length > 0);},
-                 get showPasteImage() { return ( this.loggedon);} 
-}" x-init="getLoginStatus($data);getMyImageList($data);">
+                 showSection: 'home',
+}" x-init="doPageLoad($data);">
     <header>
       <h1><a href="./">Trifecta</a></h1>
 
-      <template x-if="loggedon">
+      <template x-if="user.loggedon">
         <div>
-          <span>Logged in as </span><span x-text="user"></span>
+          <span>Logged in as </span><span x-text="user.name"></span>
           <button @click="doLogout($data)">Logout</button>
         </div>
       </template>
 
 
-      <template x-if="!loggedon">
+      <template x-if="!user.loggedon">
         <div>
           <form x-cloak @submit.prevent="doLogin($el, $data)">
             <label for="user">Username:</label>
@@ -53,100 +44,246 @@
       </template>
     </header>
 
+    <template x-if="user.isadmin">
+      <nav>
+        <a href="./#home" @click="showSection = 'home'">Home</a>
+        <a href="./#admin" @click="showSection = 'admin'">Admin</a>
+      </nav>
+    </template>
+
     <div id="content">
       <div id="userfeedback">
         <span x-text="message2user"></span>
       </div>
-
-
-      <div id="posts">
-        <template x-if="can_touch_post">
-          <div>
-            <input class="postTitle" x-model="postTitle" placeholder="Give your post a title" @keyup="doSetPostTitle($data, $el)">
-            <br/>
-            <button @click="doDeletePost($data, postId)">Delete post</button>
-            <label for="publicCB">Public:</label>
-            <input name="publicCB" @click.prevent="doChangePublic($data, postId, $el)" type="checkbox"
-                   x-bind:checked="postPublic" x-model="postPublic" />
-            <button @click="doChangePublicUntil($data, postId, $el, 300)" x-show="postPublic">5 minutes</button>
-            <button @click="doChangePublicUntil($data, postId, $el, 3600)" x-show="postPublic">1 hour</button>
-            <button @click="doChangePublicUntil($data, postId, $el, 86400)" x-show="postPublic">1 day</button>
-            <button @click="doChangePublicUntil($data, postId, $el, 30*86400)" x-show="postPublic">1 month</button>
-            <button @click="doChangePublicUntil($data, postId, $el, 0)" x-show="postPublic">Forever</button>
-            <span x-text="if(postPublicUntil > 0 && postPublic && postPublicUntil*1000 >= Date.now()) return 'Until '+new Date(postPublicUntil * 1000).toLocaleString()+ ' your time'; else return '';"></span>
-            <span style="color: red;" x-text="if(postPublicUntil > 0 && postPublicUntil*1000 < Date.now()) return 'PUBLIC TIME LIMIT EXPIRED';"></span>
-          </div>
-        </template>
-        <template x-if="!can_touch_post">
-          <h2 class="postTitle" x-text="postTitle" ></h2>
-        </template>
-
-        <template x-show="canShowImage" x-for="g in images">
-          <div>
-            <a x-bind:href="'i/'+g.id" ><img x-cloak x-bind:alt="g.caption" x-bind:src="'i/'+g.id"></a>
-            <div class="imagecontrols">
-              <template x-if="can_touch_post">
-                <textarea class="imageCaption" x-model="g.caption" placeholder="Give your image a caption" rows="4" cols="70" @keyup="processCaptionKey($data, $el, $event, g.id)"></textarea>
+      <template x-if="showSection == 'home'">
+        <div>
+          <template x-if="post.id != null">
+            <div id="post">
+              <template x-if="post.can_touch_post">
+                <div class="postcontrols">
+                  <input class="postTitle" x-model="post.title" placeholder="Give your post a title"
+                    @keyup="doSetPostTitle($data, $el)">
+                  <br />
+                  <button @click="doDeletePost($data)">Delete post</button>
+                  <label for="publicCB">Public:</label>
+                  <input name="publicCB" @click.prevent="doChangePublic($data, $el)" type="checkbox"
+                    x-bind:checked="post.public" x-model="post.public" />
+                  <button @click="doChangePublicUntil($data, post.id, 300)" x-show="post.public">5 minutes</button>
+                  <button @click="doChangePublicUntil($data, post.id, 3600)" x-show="post.public">1 hour</button>
+                  <button @click="doChangePublicUntil($data, post.id, 86400)" x-show="post.public">1 day</button>
+                  <button @click="doChangePublicUntil($data, post.id, 30*86400)" x-show="post.public">1 month</button>
+                  <button @click="doChangePublicUntil($data, post.id, 0)" x-show="post.public">Forever</button>
+                  <span
+                    x-text="if(post.publicuntil > 0 && post.public && post.publicuntil*1000 >= Date.now()) return 'Until '+new Date(post.publicuntil * 1000).toLocaleString()+ ' your time'; else return '';"></span>
+                  <span class="warning"
+                    x-text="if(post.publicuntil > 0 && post.publicuntil*1000 < Date.now()) return 'PUBLIC TIME LIMIT EXPIRED';"></span>
+                </div>
               </template>
-              <template x-if="!can_touch_post">
-                <p class="imageCaption" x-text="g.caption"></p>
+              <template x-if="!post.can_touch_post">
+                <h2 class="postTitle" x-text="post.title"></h2>
               </template>
 
-              <button @click="doDeleteImage($data, g.id)" x-show="can_touch_post">Delete image</button>
+              <template x-show="post.images.length > 0" x-for="g in post.images">
+                <div class="imagediv">
+                  <a x-bind:href="'i/'+g.id"><img x-cloak x-bind:alt="g.caption" x-bind:src="'i/'+g.id"></a>
+                  <div class="imagecontrols">
+                    <template x-if="post.can_touch_post">
+                      <textarea class="imageCaption" x-model="g.caption" placeholder="Give your image a caption"
+                        rows="4" cols="70" @keyup="processCaptionKey($data, $el, $event, g.id)"></textarea>
+                    </template>
+                    <template x-if="!post.can_touch_post">
+                      <p class="imageCaption" x-text="g.caption"></p>
+                    </template>
+
+                    <button @click="doDeleteImage($data, g.id)" x-show="post.can_touch_post">Delete image</button>
+                  </div>
+                </div>
+              </template>
             </div>
-          </div>
-        </template>
-      </div>
+          </template> <!-- end of post -->
 
-      <template x-if="showPasteImage"> 
-        <div id="paste" @paste="getImageFromPaste($data, $event)"
-             @drop.prevent="processDrop($data, $event)" @dragover.prevent="">
-          <h2>Paste your image here</h2>
-          <p>Simply paste your picture here.</p>
+          <template x-if="user.loggedon">
+            <div id="paste" @paste="getImageFromPaste($data, $event)" @drop.prevent="processDrop($data, $event)"
+              @dragover.prevent="">
+              <h2>Drop/paste your image here</h2>
+              <p>Simply drag your images and drop them on this section, or paste the picture into this area.</p>
+            </div>
+          </template>
+
+          <template x-if="user.loggedon">
+            <div id="imagelist">
+              <h2>Your images</h2>
+              <div>
+                <table>
+                  <tr>
+                    <th>Post</th>
+                    <th>Pasted on</th>
+                    <th>Paste ID</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Until</th>
+                    <th>Thumbnail</th>
+                    <th>Public</th>
+                    <!-- This is a post public flag, which is really confusing from the UX perspective -->
+                    <th>Del</th>
+                  </tr>
+                  <template x-for="g in myimages">
+                    <tr>
+                      <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
+                      <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
+                      <td x-text="g.id"></td>
+                      <td x-text="g.content_type"></td>
+                      <td x-text="g.size"></td>
+                      <td
+                        x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
+                      </td>
+                      <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+                      </td>
+                      <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
+                          x-bind:checked="g.public" />
+                      </td>
+                      <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id);">
+                      </td>
+                    </tr>
+                  </template>
+                </table>
+              </div>
+              <!-- TODO: do we still need this if all our changes properly refresh the list anyway? -->
+              <button @click="getMyImageList($data)">Refresh</button>
+            </div>
+          </template>
         </div>
       </template>
-       
-      <template x-if="loggedon"> 
-        <div id="imagelist">
-          <h2>Your images</h2>
-          <div>
+
+      <template x-if="user.isadmin && showSection == 'admin'">
+        <div> <!-- root div for template -->
+          <div id="createuser">
+            <h2>Create new user</h2>
+            <form @submit.prevent="doCreateUser($el, $data)">
+              <table>
+                <tr>
+                  <td>
+                    <label for="user">Username:</label>
+                  </td>
+                  <td>
+                    <input type="text" id="user" name="user" required>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <label for="password1">Password:</label>
+                  </td>
+                  <td>
+                    <input type="password" id="password1" name="password1" required>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <label for="password2">Confirm (password):</label>
+                  </td>
+                  <td><input type="password" id="password2" name="password2" required></td>
+                </tr>
+                <tr>
+                  <td colspan="2"><button type="submit">Create</button></td>
+                </tr>
+              </table>
+            </form>
+          </div>
+
+          <div id="allusers" x-init="getUserList($data);" x-data="{users:[]}">
+            <h2>All users</h2>
             <table>
               <tr>
-                <th>Post</th>
-                <th>Pasted on</th>
-                <th>Paste ID</th>
-                <th>Type</th>
-                <th>Size</th>
-                
-                <th>Until</th>
-                <th>Thumbnail</th>
-                <th>Public</th>
-                <th>Del</th>
+                <th>User</th>
+                <th>Admin</th>
+                <th>Disabled</th>
+                <th>Lastlogin</th>
+                <th>Email</th>
+                <th>Delete</th>
               </tr>
-              <template x-for="g in myimages">
+              <template x-for="u in users">
                 <tr>
-                  <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
-                  <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
-                  <td x-text="g.id"></td>
-                  <td x-text="g.content_type"></td>
-                  <td x-text="g.size"></td>
-                  <td x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
+                  <td x-text="u.user"></td>
+                  <td x-text="u.admin ? '✅' : ''"></td>
+                  <td><input @click.prevent="doChangeUserDisabled($data, u.user, $el)" type="checkbox"
+                      x-bind:checked="u.disabled" />
                   </td>
-                  <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+                  <td
+                    x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return ">
                   </td>
-                  <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
-                             x-bind:checked="g.public" />
-                  </td>
-                  <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(r => getMyImageList($data))">
-                  </td>
+                  <td x-text="u.email"></td>
+                  <td class="deleteicon" @click.prevent="doDelUser($data, u.user)"></td>
                 </tr>
               </template>
             </table>
           </div>
-          <button @click="getMyImageList($data)">Refresh</button>
-        </div>
+
+
+
+          <div id="sessionlist" x-init="getSessionList($data)" x-data="{sessions: []}">
+            <h2>All sessions</h2>
+            <table>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>IP</th>
+                <th>Created</th>
+                <th>Last use</th>
+                <th>Kill</th>
+              </tr>
+              <template x-for="s in sessions">
+                <tr>
+                  <td x-text="s.id"></td>
+                  <td x-text="s.user"></td>
+                  <td x-text="s.ip"></td>
+                  <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return ">
+                  </td>
+                  <td
+                    x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return ">
+                  </td>
+                  <td class="deleteicon" @click.prevent="doKillSession($data, s.id)"></td>
+                </tr>
+              </template>
+            </table>
+          </div>
+
+
+          <div id="imagelist" x-init="getImageList($data);" x-data="{images: []}">
+            <h2>All images</h2>
+            <table>
+              <tr>
+                <th>ID</th>
+                <th>Post</th>
+                <th>User</th>
+                <th>IP</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th>Public</th>
+                <th>Thumbnail</th>
+              </tr>
+              <template x-for="g in images">
+                <tr>
+                  <td x-text="g.id"></td>
+                  <td><a x-bind:href="'./?p='+g.postId" x-text="g.postId"></a></td>
+                  <td x-text="g.user"></td>
+                  <td x-text="g.ip"></td>
+                  <td x-text="g.content_type"></td>
+                  <td x-text="g.size"></td>
+                  <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox"
+                      x-bind:checked="g.public" />
+                  </td>
+                  <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
+                </tr>
+              </template>
+            </table>
+            <button @click="getImageList($data)">Refresh</button>
+          </div>
+
+
+        </div> <!--- root div for template -->
       </template>
-    </div>
+
+    </div> <!-- content div -->
     <footer>
       <span>Learn more about Trifecta on <a href="https://github.com/berthubert/trifecta">github</a></span>
     </footer>

@@ -3,11 +3,24 @@
 
     /* Used adobe color wheel with primary-3 color as middle color and Monochromatic */
     
-    --color-primary-1: #A4BDA9;
-    --color-primary-2: #658A6D;
-    --color-primary-3: #9FEFB0;
-    --color-primary-4: #2E5737;
-    --color-primary-5: #113318;
+    --color-primary-1: #1e86f7; /* the blue in the logo */
+    --color-primary-2: #1f43b1; /* the logo's 900 color */
+    --color-primary-3: #141414; /* The dark in the logo */
+
+    
+    --color-logo-blue-900: #1f43b1;
+    --color-logo-blue-800: #2063d1;
+    --color-logo-blue-700: #2074e3;
+    --color-logo-blue-600: #1e86f7;
+    --color-logo-blue-500: #1895ff;
+    --color-logo-blue-400: #3ba5ff;
+    --color-logo-blue-300: #60b5ff;
+    --color-logo-blue-200: #8fcaff;
+    --color-logo-blue-100: #bbdeff;
+    /*
+    --color-logo-bg: #1f1f1f;
+    --color-logo-dark: #141414;
+    */
     
 
     --color-gray-50: #FAFAFA;
@@ -21,21 +34,23 @@
     --color-gray-800: #424242;
     --color-gray-900: #212121;
 
-    --clr-primary-fg: var(--color-primary-5);
+    --clr-primary-fg: var(--color-primary-3);
     --clr-primary-bg: #fff;
-    --clr-table-header-bg: var(--color-primary-3);
+    --clr-on-primary-2: #fff;
+    --clr-table-header-bg: var(--color-primary-1);
     --clr-table-row-bg: var(--color-gray-200);
     --clr-table-row-even-bg: var(--color-gray-400);
-    --clr-header-bg: var(--color-primary-3);
-    --clr-header-text: var(--color-primary-5);
-    --clr-footer-bg: var(--color-primary-4);
+    --clr-header-bg: var(--color-primary-1);
+    --clr-header-text: var(--color-primary-3);
+    --clr-footer-bg: var(--color-primary-2);
     --clr-footer-text: var(--color-gray-50);
 
     --clr-btn-surface: var(--color-gray-400);
     --clr-btn-surface-hover: var(--color-gray-500);
-    --clr-btn-surface-text: var(--color-primary-5);
+    --clr-btn-surface-text: var(--color-primary-3);
 
     --clr-txt-error: #F00;
+    --clr-txt-warning: #FFA500;
 
     --size-xxs: 0.2em;
     --size-xs: 0.5em;
@@ -72,17 +87,15 @@ h1>a {
     color: var(--clr-header-text);
 }
 
-.postTitle {
-    font-size: var(--size-l);
-    margin: 1em;
-}
+
 
 div#container {
     height: 100dvh;
     display: grid;
-    grid-template-rows:auto 1fr auto;
+    grid-template-rows:auto auto 1fr auto;
     grid-template-areas: 
     "header"
+    "navigation"
     "content"
     "footer";
 }
@@ -114,50 +127,79 @@ header {
 header>div {
     margin-left: auto;
 }
+nav {
+    grid-area: navigation;
+    background-color: var(--color-primary-2);
+    color: var(--clr-on-primary-2);
+    margin-bottom: var(--size-l);
+}
 
+nav a {
+    text-decoration: none;
+    color: var(--clr-on-primary-2);
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
 
 div#content {
-    grid-area: content;
+    margin-left: auto;
+    margin-right: auto;
+    width: 95%;
     display: flex;
     align-items: center;
     flex-direction: column;
-    padding: var(--size-xs);
+    grid-area: content;
 }
+
+div#content > div {
+    min-width: 70%;
+}
+
 
 #userfeedback>span {
     font-weight: bold;
 }
 
 #paste {
-    min-width: 70%;
+    margin-top: var(--size-l);
     background-color: var(--color-gray-200);
     border-width: var(--size-xxs);
     border-style:dashed;
-    border-color: var(--color-primary-5);
-    padding: var(--size-l);
+    border-color: var(--color-primary-3);
 }
 
 
-#posts {
-    min-width: 70%;
-    margin-left: auto;
-    margin-right: auto;
+#post {
+    background-color: var(--color-gray-300);
     display:flex;
     flex-direction: column;
+    margin-top: var(--size-m);
 }
 
-#posts img {
-    border: 1px solid;
-    border-color: var(--color-gray-400);
+
+#post img {
     max-width: 100%;
-    display: block;
     margin: auto;
+    display:block;
+    filter: drop-shadow(0 0 0.5rem var(--color-primary-3))
 }
 
-#posts > div {
-    border-bottom: 2px dashed var(--color-primary-1);
-    padding-bottom: var(--size-m);
+.postcontrols {
+    padding-bottom: var(--size-xs);
+    background-color: var(--color-logo-blue-100);
+}
+
+.imagediv {
+    border-top: 2px solid var(--color-logo-blue-100);
+    padding-top: var(--size-m);
     margin-bottom: var(--size-m);
+}
+
+.postTitle {
+    font-size: var(--size-l);
+    margin-bottom: var(--size-s);
 }
 
 #imagelist {
@@ -179,7 +221,7 @@ td {
 }
 
 th {
-    background-color: var(--clr-table-header-bg);
+    background-color: var(--color-logo-blue-100);
 }
 
 tr {
@@ -220,4 +262,8 @@ button:hover {
 
 .error {
     color: var(--clr-txt-error);
+}
+
+.warning {
+    color: var(--clr-txt-warning);
 }
