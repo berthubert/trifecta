@@ -354,8 +354,13 @@ int trifectaMain(int argc, const char**argv)
         if(!u.userHasCap(user, c))
           throw std::runtime_error(fmt::format("Lacked a capability ({})", (int)c));
       }
-      nlohmann::json j = f(req, res, user);
-      res.set_content(j.dump(), "application/json");
+      auto output = f(req, res, user);
+      if constexpr (std::is_same_v<decltype(output), std::pair<string, string>>) {
+        res.set_content(output.first, output.second);
+      }
+      else {
+        res.set_content(output.dump(), "application/json");
+      }
     };
     if(getOrPost)
       svr.Get(pattern, func);
@@ -403,14 +408,14 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  svr.Get("/join-session/:sessionid", [&lsqw](const auto& req, auto& res) {
+  wrapGet({}, "/join-session/:sessionid", [&lsqw](const auto& req, auto& res, const string&) {
     string sessionid = req.path_params.at("sessionid");
 
     res.set_header("Set-Cookie",
                    "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
     res.set_header("Location", "../");
     res.status = 303;
-    
+    return pair(string(""), string("text/html"));
   });
 
   wrapGet({}, "/getPost/:postid", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
@@ -439,8 +444,7 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  // can't use wrap here, returns an image not json
-  svr.Get("/i/:imgid", [&sessions, &lsqw, &u](const auto& req, auto& res) {
+  wrapGet({}, "/i/:imgid", [&sessions, &lsqw, &u](const auto& req, auto& res, const string& ) {
     string imgid = req.path_params.at("imgid");
     string user;
     res.status = 404;
@@ -453,20 +457,21 @@ int trifectaMain(int argc, const char**argv)
 
     if(results.size() != 1) {
       lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}, {"meta", "no such image"}}, "log");
-      return;
+      return pair<string,string>("No such file", "text/html");
     }
 
     if(!shouldShow(u, user, results[0])) {
       lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
-      return;
+      return pair<string,string>("No such file", "text/html");
     }
 
     auto img = get<vector<uint8_t>>(results[0]["image"]);
     string s((char*)&img[0], img.size());
-    res.set_content(s, get<string>(results[0]["content_type"]));
     res.status = 200;
 
     lsqw.addValue({{"action", "view"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+    return make_pair(s, get<string>(results[0]["content_type"]));
+
   });
 
 
