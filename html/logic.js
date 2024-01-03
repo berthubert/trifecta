@@ -95,7 +95,10 @@ function getSessionList(f) {
 
 function getMyImageList(f) {
     fetch('my-images').then(response => response.json()).then(data => {
-        f.myimages = data;
+        // order by postid so that images for the same post are together
+        f.myimages = data.sort((a, b) => {
+            return a.postId < b.postId;
+        })
     });
 }
 
