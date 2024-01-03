@@ -382,6 +382,7 @@ TEST_CASE("web visibility tests") {
   res = cli.Get("/getPost/"+postId);
   REQUIRE(res != 0);
   j = nlohmann::json::parse(res->body);
+  CHECK(j["images"].size()==1);
   CHECK(j["publicUntil"]==newTime);
   CHECK(j["can_touch_post"]==0);
 
