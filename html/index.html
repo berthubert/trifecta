@@ -60,7 +60,7 @@
           <template x-if="post.id != null">
             <div id="post">
               <template x-if="post.can_touch_post">
-                <div>
+                <div class="postcontrols">
                   <input class="postTitle" x-model="post.title" placeholder="Give your post a title"
                     @keyup="doSetPostTitle($data, $el)">
                   <br />
@@ -84,7 +84,7 @@
               </template>
 
               <template x-show="post.images.length > 0" x-for="g in post.images">
-                <div>
+                <div class="imagediv">
                   <a x-bind:href="'i/'+g.id"><img x-cloak x-bind:alt="g.caption" x-bind:src="'i/'+g.id"></a>
                   <div class="imagecontrols">
                     <template x-if="post.can_touch_post">

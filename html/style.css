@@ -7,7 +7,7 @@
     --color-primary-2: #1f43b1; /* the logo's 900 color */
     --color-primary-3: #141414; /* The dark in the logo */
 
-    /*
+    
     --color-logo-blue-900: #1f43b1;
     --color-logo-blue-800: #2063d1;
     --color-logo-blue-700: #2074e3;
@@ -17,7 +17,7 @@
     --color-logo-blue-300: #60b5ff;
     --color-logo-blue-200: #8fcaff;
     --color-logo-blue-100: #bbdeff;
-    
+    /*
     --color-logo-bg: #1f1f1f;
     --color-logo-dark: #141414;
     */
@@ -153,6 +153,10 @@ div#content {
     grid-area: content;
 }
 
+div#content > div {
+    min-width: 70%;
+}
+
 
 #userfeedback>span {
     font-weight: bold;
@@ -168,31 +172,34 @@ div#content {
 
 
 #post {
-
-    width: 100%;
     background-color: var(--color-gray-300);
     display:flex;
     flex-direction: column;
+    margin-top: var(--size-m);
 }
 
+
 #post img {
-    border: 1px solid;
-    border-color: var(--color-gray-400);
     max-width: 100%;
-    display: block;
     margin: auto;
+    display:block;
     filter: drop-shadow(0 0 0.5rem var(--color-primary-3))
 }
 
-#post > div {
-    border-bottom: 2px dashed var(--color-gray-400);
-    padding-bottom: var(--size-m);
+.postcontrols {
+    padding-bottom: var(--size-xs);
+    background-color: var(--color-logo-blue-100);
+}
+
+.imagediv {
+    border-top: 2px solid var(--color-logo-blue-100);
+    padding-top: var(--size-m);
     margin-bottom: var(--size-m);
 }
 
 .postTitle {
     font-size: var(--size-l);
-
+    margin-bottom: var(--size-s);
 }
 
 #imagelist {
@@ -214,7 +221,7 @@ td {
 }
 
 th {
-    background-color: var(--clr-table-header-bg);
+    background-color: var(--color-logo-blue-100);
 }
 
 tr {
