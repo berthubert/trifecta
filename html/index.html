@@ -58,7 +58,7 @@
       <template x-if="showSection == 'home'">
         <div>
           <template x-if="post.id != null">
-            <div id="posts">
+            <div id="post">
               <template x-if="post.can_touch_post">
                 <div>
                   <input class="postTitle" x-model="post.title" placeholder="Give your post a title"
@@ -100,8 +100,7 @@
                 </div>
               </template>
             </div>
-
-          </template>
+          </template> <!-- end of post -->
 
           <template x-if="user.loggedon">
             <div id="paste" @paste="getImageFromPaste($data, $event)" @drop.prevent="processDrop($data, $event)"
