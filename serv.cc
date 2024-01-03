@@ -488,7 +488,7 @@ int trifectaMain(int argc, const char**argv)
     res.set_content(j.dump(), "application/json");
   });
 
-  {
+  { // valid-user
     AuthSentinel as(a, "valid-user");
 
     svr.Post("/upload", [&lsqw, a, &u](const auto& req, auto& res) {
@@ -702,11 +702,11 @@ int trifectaMain(int argc, const char**argv)
         if(!a.check(req)) {
           throw std::runtime_error("Not admin");
         }
-
+        
         string password1 = req.get_file_value("password1").content;
         string user = req.get_file_value("user").content;
         nlohmann::json j;
-
+        
         if(password1.empty() || user.empty()) {
           j["ok"]=false;
           j["message"] = "User or password field empty";
@@ -723,57 +723,58 @@ int trifectaMain(int argc, const char**argv)
         }
         res.set_content(j.dump(), "application/json");
       });
-    }
 
-    svr.Post("/change-user-disabled/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
-      if(!a.check(req))
-        throw std::runtime_error("Not admin");
-      string user = req.matches[1];
-      bool disabled = stoi(req.matches[2]);
-      lsqw.query("update users set disabled = ? where user=?", {disabled, user});
-      if(disabled) {
-        lsqw.query("delete from sessions where user=?", {user});
-      }
-      lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", a.getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
-    });
-
-    svr.Post("/change-password/?", [&lsqw, &u, a](const auto& req, auto& res) {
+      
+      svr.Post("/change-user-disabled/([^/]+)/([01])", [&lsqw, a](const auto& req, auto& res) {
+        if(!a.check(req))
+          throw std::runtime_error("Not admin");
+        string user = req.matches[1];
+        bool disabled = stoi(req.matches[2]);
+        lsqw.query("update users set disabled = ? where user=?", {disabled, user});
+        if(disabled) {
+          lsqw.query("delete from sessions where user=?", {user});
+        }
+        lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", a.getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
+      });
+      
+      svr.Post("/change-password/?", [&lsqw, &u, a](const auto& req, auto& res) {
       if(!a.check(req))
         throw std::runtime_error("Not admin");
       auto pwfield = req.get_file_value("password");
       if(pwfield.content.empty())
         throw std::runtime_error("Can't set an empty password");
-
+      
       string user = req.get_file_value("user").content;
       cout<<"Attemping to set password for user "<<user<<endl;
       u.changePassword(user, pwfield.content);
-    });
-
-    svr.Post("/kill-session/([^/]+)", [&lsqw, a](const auto& req, auto& res) {
-      if(!a.check(req))
-        throw std::runtime_error("Not admin");
-      string session = req.matches[1];
-      lsqw.query("delete from sessions where id=?", {session});
-      lsqw.addValue({{"action", "kill-session"}, {"ip", a.getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
-    });
-
-    svr.Post("/del-user/([^/]+)", [&lsqw, a, &u](const auto& req, auto& res) {
-      if(!a.check(req))
-        throw std::runtime_error("Not admin");
-      string user = req.matches[1];
-      u.delUser(user);
-
-      lsqw.addValue({{"action", "del-user"}, {"ip", a.getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
-    });
-
-    svr.Post("/stop" , [&lsqw, a, &svr](const auto& req, auto& res) {
-      if(!a.check(req))
-        throw std::runtime_error("Not admin");
-      lsqw.addValue({{"action", "stop"}, {"ip", a.getIP(req)}, {"user", a.getUser(req)}, {"tstamp", time(0)}}, "log");
-
-      cout<<"Attempting to stop server"<<endl;
-      svr.stop();
-    });
+      });
+      
+      svr.Post("/kill-session/([^/]+)", [&lsqw, a](const auto& req, auto& res) {
+        if(!a.check(req))
+          throw std::runtime_error("Not admin");
+        string session = req.matches[1];
+        lsqw.query("delete from sessions where id=?", {session});
+        lsqw.addValue({{"action", "kill-session"}, {"ip", a.getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
+      });
+      
+      svr.Post("/del-user/([^/]+)", [&lsqw, a, &u](const auto& req, auto& res) {
+        if(!a.check(req))
+          throw std::runtime_error("Not admin");
+        string user = req.matches[1];
+        u.delUser(user);
+        
+        lsqw.addValue({{"action", "del-user"}, {"ip", a.getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
+      });
+      
+      svr.Post("/stop" , [&lsqw, a, &svr](const auto& req, auto& res) {
+        if(!a.check(req))
+          throw std::runtime_error("Not admin");
+        lsqw.addValue({{"action", "stop"}, {"ip", a.getIP(req)}, {"user", a.getUser(req)}, {"tstamp", time(0)}}, "log");
+        
+        cout<<"Attempting to stop server"<<endl;
+        svr.stop();
+      });
+    }
   }
 
   string laddr = args.get<string>("local-address");
