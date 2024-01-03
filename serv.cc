@@ -52,18 +52,17 @@ struct LockedSqw
     return sqw.queryT(query, values);
   }
 
-  void queryJ(httplib::Response &res, const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values) 
+  void queryJ(httplib::Response &res, const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values={}) 
   {
     auto result = query(q, values);
     res.set_content(packResultsJsonStr(result), "application/json");
   }
 
-  auto queryJStr(const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values) 
+  auto queryJStr(const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values={}) 
   {
     auto result = query(q, values);
     return packResultsJson(result);
   }
-
   
   void addValue(const std::initializer_list<std::pair<const char*, SQLiteWriter::var_t>>& values, const std::string& table="data")
   {
@@ -113,7 +112,6 @@ bool Users::checkPassword(const std::string& user, const std::string& password) 
     cout<<"No such user '"<< user << "'" <<endl;
     return false;
   }
-  //  cout<<"Password: '"<<password<<"'\n";
   return bcrypt::validatePassword(password, get<string>(res[0]["pwhash"]));
 }
 
@@ -341,7 +339,6 @@ int trifectaMain(int argc, const char**argv)
     if(caps.count(Capability::Admin))
       cout<<" Admin ";
     cout<<" pattern "<<pattern<<endl;
-
         
     auto func = [f, &sessions, caps, &u](const httplib::Request &req, httplib::Response &res) {
       string user;
@@ -366,14 +363,13 @@ int trifectaMain(int argc, const char**argv)
       svr.Get(pattern, func);
     else
       svr.Post(pattern, func);
-        
   };
   auto wrapGet = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) { wrapGetOrPost(true, caps, pattern, f); };
   auto wrapPost = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) {
     wrapGetOrPost(false, caps, pattern, f);
   };
  
-  wrapGet({}, "/status", [&u](const httplib::Request &req, httplib::Response &res, const std::string& user) {
+  wrapGet({}, "/status", [&u](const auto &req, httplib::Response &res, const std::string& user) {
     nlohmann::json j;
     j["login"] = !user.empty();
     j["admin"] = false;
@@ -384,7 +380,7 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  wrapPost({}, "/login", [&lsqw, &sessions, &u](const httplib::Request &req, httplib::Response &res, const std::string& ign) {
+  wrapPost({}, "/login", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
     string user = req.get_file_value("user").content;
     string password = req.get_file_value("password").content;
     nlohmann::json j;
@@ -401,13 +397,14 @@ int trifectaMain(int argc, const char**argv)
       lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
     }
     else {
-      cout<<"Wrong user or password"<<endl;
+      cout<<"Wrong user or password for user " << user <<endl;
       j["message"]="Wrong user or password";
       lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     }
     return j;
   });
 
+  // this is for use in email evntually
   wrapGet({}, "/join-session/:sessionid", [&lsqw](const auto& req, auto& res, const string&) {
     string sessionid = req.path_params.at("sessionid");
 
@@ -444,14 +441,9 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  wrapGet({}, "/i/:imgid", [&sessions, &lsqw, &u](const auto& req, auto& res, const string& ) {
+  wrapGet({}, "/i/:imgid", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     string imgid = req.path_params.at("imgid");
-    string user;
     res.status = 404;
-
-    try {
-      user = sessions.getUser(req);
-    }catch(...){}
 
     auto results = lsqw.query("select image,public,content_type, posts.publicUntilTstamp, posts.user from images,posts where images.id=? and posts.id = images.postId ", {imgid});
 
@@ -471,11 +463,8 @@ int trifectaMain(int argc, const char**argv)
 
     lsqw.addValue({{"action", "view"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     return make_pair(s, get<string>(results[0]["content_type"]));
-
   });
 
-
-  
   wrapPost({Capability::IsUser}, "/upload", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
     time_t tstamp = time(0);
     string postId = req.get_file_value("postId").content;
@@ -612,22 +601,12 @@ int trifectaMain(int argc, const char**argv)
     lsqw.addValue({{"action", "change-post-public"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     return nlohmann::json();
   });
-  
-  
-  wrapGet({Capability::IsUser}, "/can_touch_post/:postid", [&lsqw, &u](const httplib::Request &req, httplib::Response &res, const string& user) {
     
-    string postid = req.path_params.at("postid");
-    nlohmann::json j;
-    j["can_touch_post"] = canTouchPost(lsqw, u, user, postid) ? 1 : 0;
-    
-    return j;
-  });
-  
-  wrapGet({Capability::IsUser}, "/my-images", [&lsqw](const httplib::Request &req, httplib::Response &res, const string& user) {
+  wrapGet({Capability::IsUser}, "/my-images", [&lsqw](const auto &req, auto &res, const string& user) {
     return lsqw.queryJStr("select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {user});
     });
   
-  wrapPost({Capability::IsUser}, "/logout", [&lsqw, &sessions](const httplib::Request &req, httplib::Response &res, const string& user)  {
+  wrapPost({Capability::IsUser}, "/logout", [&lsqw, &sessions](const auto &req, auto &res, const string& user)  {
     lsqw.addValue({{"action", "logout"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     try {
       sessions.dropSession(getSessionID(req));
@@ -642,18 +621,18 @@ int trifectaMain(int argc, const char**argv)
   });
 
   wrapGet({Capability::Admin}, "/all-images", [&lsqw](const auto &req, auto &res, const string& user) {
-    return lsqw.queryJStr("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId", {});
+    return lsqw.queryJStr("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
   });
     
-  wrapGet({Capability::Admin}, "/all-users", [&lsqw](const httplib::Request &req, httplib::Response &res, const string& ) {
-    return lsqw.queryJStr("select user, email, disabled, lastLoginTstamp, admin from users", {});
+  wrapGet({Capability::Admin}, "/all-users", [&lsqw](const auto &req, auto &res, const string& ) {
+    return lsqw.queryJStr("select user, email, disabled, lastLoginTstamp, admin from users");
   });
     
   wrapGet({Capability::Admin}, "/all-sessions", [&lsqw](const auto&req, auto &res, const string& user) {
-    return lsqw.queryJStr("select * from sessions", {});
+    return lsqw.queryJStr("select * from sessions");
   });
     
-  wrapPost({Capability::Admin}, "/create-user", [&lsqw, &sessions, &u](const auto &req, auto &res, const string& ) {
+  wrapPost({Capability::Admin}, "/create-user", [&u](const auto &req, auto &res, const string& ) {
     string password1 = req.get_file_value("password1").content;
     string user = req.get_file_value("user").content;
     nlohmann::json j;
@@ -674,7 +653,6 @@ int trifectaMain(int argc, const char**argv)
     }
     return j;
   });
-    
     
   wrapPost({Capability::Admin}, "/change-user-disabled/([^/]+)/([01])", [&lsqw](const auto& req, auto& res, const string& ) {
     string user = req.matches[1];
@@ -716,8 +694,6 @@ int trifectaMain(int argc, const char**argv)
     
   wrapPost({Capability::Admin}, "/stop" , [&lsqw, &svr](const auto& req, auto& res, const string& wuser) {
     lsqw.addValue({{"action", "stop"}, {"ip", getIP(req)}, {"user", wuser}, {"tstamp", time(0)}}, "log");
-      
-    cout<<"Attempting to stop server"<<endl;
     svr.stop();
     return nlohmann::json();
   });
