@@ -2,21 +2,11 @@
     
 
     /* Used adobe color wheel with primary-3 color as middle color and Monochromatic */
-    
-    --color-primary-1: #1e86f7; /* the blue in the logo */
-    --color-primary-2: #1f43b1; /* the logo's 900 color */
-    --color-primary-3: #141414; /* The dark in the logo */
+    --color-primary-1: #9FEFB0; /* the blue in the logo */
+    --color-primary-2: #00802e; /* the logo's 900 color */
+    --color-primary-3: #113318; /* The dark in the logo */
 
     
-    --color-logo-blue-900: #1f43b1;
-    --color-logo-blue-800: #2063d1;
-    --color-logo-blue-700: #2074e3;
-    --color-logo-blue-600: #1e86f7;
-    --color-logo-blue-500: #1895ff;
-    --color-logo-blue-400: #3ba5ff;
-    --color-logo-blue-300: #60b5ff;
-    --color-logo-blue-200: #8fcaff;
-    --color-logo-blue-100: #bbdeff;
     /*
     --color-logo-bg: #1f1f1f;
     --color-logo-dark: #141414;
@@ -168,6 +158,10 @@ div#content > div {
     border-width: var(--size-xxs);
     border-style:dashed;
     border-color: var(--color-primary-3);
+    padding-top: var(--size-l);
+    padding-bottom: var(--size-l);
+    padding-left: var(--size-s);
+    padding-right: var(--size-s);
 }
 
 
@@ -188,11 +182,11 @@ div#content > div {
 
 .postcontrols {
     padding-bottom: var(--size-xs);
-    background-color: var(--color-logo-blue-100);
+    background-color: var(--color-primary-1);
 }
 
 .imagediv {
-    border-top: 2px solid var(--color-logo-blue-100);
+    border-top: 2px solid var(--color-primary-1);
     padding-top: var(--size-m);
     margin-bottom: var(--size-m);
 }
@@ -221,7 +215,7 @@ td {
 }
 
 th {
-    background-color: var(--color-logo-blue-100);
+    background-color: var(--color-primary-1);
 }
 
 tr {
