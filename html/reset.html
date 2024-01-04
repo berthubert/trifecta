@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Trifecta</title>
+  <meta charset="utf-8">
+  <link rel='stylesheet' href='style.css'>
+  <link rel="icon" type="image/x-icon" href="trifecta.ico">
+  <script defer src="alpine.min.js"></script>
+  <script>
+    function parseURL(f)
+    {
+        let url = new URL(window.location.href)
+        f.session = url.searchParams.get("session");
+    }
+
+    async function doSignin(f, resetpw)
+    {
+        const response = await fetch('join-session/'+f.session, {method: "POST"});
+        if (response.ok === true) {
+            const data = await response.json();
+            console.log(data);
+            if(data.ok) {
+                if(!resetpw) {
+                    window.location.href = "./";
+                    return;
+                }
+                const response2 = await fetch('/wipe-my-password', {method: "POST"});
+                window.location.href = "./#user";
+                return;
+            }
+            else {
+                console.log("No luck 1");
+                f.message2user="Sign-in link no longer valid.";
+            }
+        } else {
+            console.log("No luck 2");
+            f.message2user="Sign-in link no longer valid";
+        }
+    }
+    
+  </script>
+</head>
+
+<body>
+  <div id="container" x-data="{session: '', message2user: ''}" x-init="parseURL($data);">
+    <header>
+      <h1><a href="./">Trifecta</a></h1>
+    </header>
+    <div id="userfeedback">
+      <span x-text="message2user"></span>
+    </div>
+    
+    <div id="content">
+      <button @click="doSignin($data, true);">Reset password</button>&nbsp;
+      <button @click="doSignin($data, false);">Passwordless sign-in</button>
+    </div>
+      
+  </div> <!-- id=container -- Alpine div -->
+</body>
+
+</html>

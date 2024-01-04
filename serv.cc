@@ -79,7 +79,18 @@ static int64_t getRandom63()
   return dist(generator);
 }
 
-enum class Capability {IsUser=1, Admin=2};
+enum class Capability {IsUser=1, Admin=2, EmailAuthenticated=3};
+
+string getSessionID(const httplib::Request &req) 
+{
+  auto cookies = getCookies(req.get_header_value("Cookie"));
+  auto siter = cookies.find("session");
+  if(siter == cookies.end()) {
+    throw std::runtime_error("No session cookie");
+  }
+  return siter->second;
+}
+
 
 struct Users
 {
@@ -91,7 +102,7 @@ struct Users
   string getEmail(const std::string& user);
   void delUser(const std::string& user);
   bool hasPassword(const std::string& user);
-  bool userHasCap(const std::string& user, const Capability& cap)
+  bool userHasCap(const std::string& user, const Capability& cap, const httplib::Request* req=0)
   {
     bool ret=false;
     if(cap== Capability::IsUser) {
@@ -100,6 +111,9 @@ struct Users
     }
     else if(cap==Capability::Admin) {
       auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0 and admin=1", {user});
+      ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
+    } else if(cap==Capability::EmailAuthenticated && req) {
+      auto c = d_lsqw.query("select count(1) as c from sessions where user=? and authenticated=1 and id=?", {user, getSessionID(*req)});
       ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
     }
     return ret;
@@ -158,15 +172,6 @@ void Users::changePassword(const std::string& user, const std::string& password)
   d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
-string getSessionID(const httplib::Request &req) 
-{
-  auto cookies = getCookies(req.get_header_value("Cookie"));
-  auto siter = cookies.find("session");
-  if(siter == cookies.end()) {
-    throw std::runtime_error("No session cookie");
-  }
-  return siter->second;
-}
 
 // XXXX should only trust X-Real-IP if traffic is from a known and trusted proxy
 string getIP(const httplib::Request& req) 
@@ -195,10 +200,11 @@ public:
     return "";
   }
 
-  string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip)
+  string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip, bool authenticated=false)
   {
     string sessionid=makeShortID(getRandom63())+makeShortID(getRandom63());
-    d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)}, {"lastUseTstamp", 0}}, "sessions");
+    d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)}, {"lastUseTstamp", 0},
+                     {"authenticated", (int)authenticated}}, "sessions");
     return sessionid;
   }
 
@@ -368,7 +374,7 @@ int trifectaMain(int argc, const char**argv)
       catch(exception& e) {
       }
       for(const auto& c: caps) {
-        if(!u.userHasCap(user, c))
+        if(!u.userHasCap(user, c, &req))
           throw std::runtime_error(fmt::format("Lacked a capability ({})", (int)c));
       }
       auto output = f(req, res, user);
@@ -426,28 +432,25 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  wrapGet({}, "/join-session/:sessionid", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
-    string sessionid = req.path_params.at("sessionid");
+  wrapPost({}, "/join-session/(.*)", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
+    string sessionid = req.matches[1];
+    nlohmann::json j;
+    j["ok"]=0;
 
-    auto c = lsqw.query("select user, id from sessions where id=?", {sessionid});
+    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1", {sessionid});
     if(c.size()==1) {
-      string user= get<string>(c[0]["user"]);
-      cout<<"Found user, blanking out password"<<endl;
-      u.changePassword(user, "");
-
       // delete this temporary session
+      string user= get<string>(c[0]["user"]);
       lsqw.query("delete from sessions where id=? and user=?", {sessionid, user});
-      string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req));
-      cout<<"Created new session id "<<newsessionid<<endl;
+      // emailauthenticated session so it can reset your password
+      string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req), true);
       res.set_header("Set-Cookie",
                      "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-      
-      res.set_header("Location", "../#user");
-      res.status = 303;
-      return pair(string(""), string("text/html"));
+      j["ok"]=1;
     }
-
-    return pair<string,string>("Unknown session id", "text/html");
+    else
+      cout<<"Could not find authenticated session "<<sessionid<<endl;
+    return j;
   });
 
   wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
@@ -458,9 +461,9 @@ int trifectaMain(int argc, const char**argv)
     j["message"] = "If this user exists and has an email address, a message was sent";
     j["ok"]=1;
     if(!email.empty()) {
-      string session = sessions.createSessionForUser(user, "Change password session", getIP(req));
+      string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true); // authenticated session
       string dest="http://127.0.0.1:1234/";
-      sendAsciiEmailAsync("bert@hubertnet.nl", email, "Trifecta sign-in link", "Going to this link will reset your password and sign you in: "+dest+"join-session/"+session+"\n. Enjoy!");
+      sendAsciiEmailAsync("bert@hubertnet.nl", email, "Trifecta sign-in link", "Going to this link will allow you to reset your password or sign you in directly: "+dest+"reset.html?session="+session+"\nEnjoy!");
       cout<<"Sent email pointing user at "<<dest<<"/join-session/"<<session<<endl;
     }
     else
@@ -616,6 +619,13 @@ int trifectaMain(int argc, const char**argv)
     lsqw.query("update images set caption=? where id=?", {caption, imgid});
     lsqw.addValue({{"action", "set-image-caption"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     return nlohmann::json();
+  });
+
+  wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+    u.changePassword(user, "");
+    nlohmann::json j;
+    j["ok"]=1;
+    return j;
   });
   
   wrapPost({Capability::IsUser}, "/change-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
