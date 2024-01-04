@@ -2,7 +2,7 @@
 #include <exception>
 #include <iostream>
 #include <mutex>
-#include <random>
+
 #include <stdexcept>
 #include <string>
 
@@ -68,13 +68,6 @@ struct LockedSqw
   }
 };
 
-static int64_t getRandom63()
-{
-  static std::random_device rd;
-  static std::mt19937_64 generator(rd());
-  std::uniform_int_distribution<int64_t> dist(1, std::numeric_limits<int64_t>::max());
-  return dist(generator);
-}
 
 enum class Capability {IsUser=1, Admin=2, EmailAuthenticated=3};
 

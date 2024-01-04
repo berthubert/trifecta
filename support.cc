@@ -1,5 +1,5 @@
 #include <iostream>
-
+#include <random>
 #include <regex>
 #include "cryptopp/base64.h"
 #include "support.hh"
@@ -32,6 +32,14 @@ static unordered_map<string,string> getGen(const std::string& cookiestr, const s
 unordered_map<string,string> getCookies(const std::string& cookiestr)
 {
   return getGen(cookiestr, "; ");
+}
+
+int64_t getRandom63()
+{ // thread issue?
+  static std::random_device rd;
+  static std::mt19937_64 generator(rd());
+  std::uniform_int_distribution<int64_t> dist(1, std::numeric_limits<int64_t>::max());
+  return dist(generator);
 }
 
 string makeShortID(int64_t id)
@@ -82,6 +90,8 @@ void sendAsciiEmailAsync(const std::string& from, const std::string& to, const s
   sc.writen("To: "+to+"\r\n");
   sc.writen("Subject: "+subject+"\r\n");
 
+  sc.writen(fmt::format("Message-Id: <{}@trifecta.hostname>\r\n", makeShortID(getRandom63())));
+  
   //Date: Thu, 28 Dec 2023 14:31:37 +0100 (CET)
   sc.writen(fmt::format("Date: {:%a, %d %b %Y %H:%M:%S %z (%Z)}\r\n", fmt::localtime(time(0))));
   sc.writen("\r\n");

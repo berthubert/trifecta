@@ -19,7 +19,6 @@
         const response = await fetch('join-session/'+f.session, {method: "POST"});
         if (response.ok === true) {
             const data = await response.json();
-            console.log(data);
             if(data.ok) {
                 if(!resetpw) {
                     window.location.href = "./";
