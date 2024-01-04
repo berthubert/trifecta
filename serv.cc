@@ -725,9 +725,9 @@ int trifectaMain(int argc, const char**argv)
     string email = req.get_file_value("email").content;
     nlohmann::json j;
       
-    if(password1.empty() || user.empty()) {
+    if(user.empty()) {
       j["ok"]=false;
-      j["message"] = "User or password field empty";
+      j["message"] = "User field empty";
     }
     else {
       u.createUser(user, password1, email, false);
