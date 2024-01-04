@@ -20,9 +20,6 @@ using namespace std;
 /*
 Todo:
   Configuration items in database
-  Enable password reset email
-
-  implement change my password in UI
   if a user is disabled, do images/posts turn into 404s?
 
   opengraph data for previews, how? iframe?
@@ -192,8 +189,8 @@ public:
     try {
       auto ret = d_lsqw.query("select * from sessions where id=?", {sessionid});
       if(ret.size()==1) {
-        if(std::get<int64_t>(ret[0]["authenticated"]) &&
-           std::get<int64_t>(ret[0]["createTstamp"]) < time(0) - 86400) {
+        time_t expire = std::get<int64_t>(ret[0]["expireTstamp"]);
+        if(expire && expire < time(0)) {
           cout<<"Authenticated session expired"<<endl;
           d_lsqw.query("delete from sessions where id=?", {sessionid});
           return "";
@@ -203,14 +200,15 @@ public:
         return get<string>(ret[0]["user"]);
       }
     }
-    catch(...){}
+    catch(std::exception&e ){ cout<<"Error: "<<e.what()<<endl;}
     return "";
   }
 
-  string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip, bool authenticated=false)
+  string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip, bool authenticated=false, std::optional<time_t> expire={})
   {
     string sessionid=makeShortID(getRandom63())+makeShortID(getRandom63());
-    d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)}, {"lastUseTstamp", 0},
+    d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)},
+                     {"lastUseTstamp", 0}, {"expireTstamp", expire.value_or(0)},
                      {"authenticated", (int)authenticated}}, "sessions");
     return sessionid;
   }
@@ -379,6 +377,7 @@ int trifectaMain(int argc, const char**argv)
         user = sessions.getUser(req);
       }
       catch(exception& e) {
+        cout<<"Error getting user from session: "<<e.what()<<endl;
       }
       for(const auto& c: caps) {
         if(!u.userHasCap(user, c, &req))
@@ -408,7 +407,7 @@ int trifectaMain(int argc, const char**argv)
     j["admin"] = false;
     if(!user.empty()) {
       j["user"] = user;
-      j["admin"]=u.userHasCap(user, Capability::Admin);
+      j["admin"] = u.userHasCap(user, Capability::Admin);
       j["email"] = u.getEmail(user);
       j["hasPw"] = u.hasPassword(user);
     }
@@ -422,7 +421,7 @@ int trifectaMain(int argc, const char**argv)
     j["ok"]=0;
     if(u.checkPassword(user, password)) {
       string ip=getIP(req), agent= req.get_header_value("User-Agent");
-      string sessionid = sessions.createSessionForUser(user, ip, agent);
+      string sessionid = sessions.createSessionForUser(user, agent, ip);
       res.set_header("Set-Cookie",
                      "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
       cout<<"Logged in user "<<user<<endl;
@@ -443,16 +442,17 @@ int trifectaMain(int argc, const char**argv)
     string sessionid = req.matches[1];
     nlohmann::json j;
     j["ok"]=0;
-    // valid for only one day
-    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and createTstamp > ?", {sessionid, time(0)-86400});
+
+    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
     if(c.size()==1) {
       // delete this temporary session
       string user= get<string>(c[0]["user"]);
       lsqw.query("delete from sessions where id=? and user=?", {sessionid, user});
-      // emailauthenticated session so it can reset your password
+      // emailauthenticated session so it can reset your password, but no expiration
       string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req), true);
       res.set_header("Set-Cookie",
                      "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
       j["ok"]=1;
     }
     else
@@ -468,13 +468,14 @@ int trifectaMain(int argc, const char**argv)
     j["message"] = "If this user exists and has an email address, a message was sent";
     j["ok"]=1;
     if(!email.empty()) {
-      string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true); // authenticated session
+      // valid for 1 day
+      string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true, time(0)+86400); // authenticated session
       string dest="http://127.0.0.1:1234/";
       sendAsciiEmailAsync("bert@hubertnet.nl", email, "Trifecta sign-in link", "Going to this link will allow you to reset your password or sign you in directly: "+dest+"reset.html?session="+session+"\nEnjoy!");
-      cout<<"Sent email pointing user at "<<dest<<"/join-session/"<<session<<endl;
+      cout<<"Sent email pointing user at "<<dest<<"/reset.html?session="<<session<<endl;
     }
     else
-      cout<<"Had no email address.."<<endl;
+      cout<<"Had no email address for user "<<user<<endl;
     
     return j;
   });
@@ -630,7 +631,7 @@ int trifectaMain(int argc, const char**argv)
 
   wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     u.changePassword(user, "");
-    nlohmann::json j;
+    nlohmann::json j; 
     j["ok"]=1;
     return j;
   });
