@@ -37,7 +37,7 @@
 
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required>
-
+            <button @click.prevent="doAskForSigninEmail($el.parentNode, $data)">Get sign-in email</button>
             <button type="submit">Login</button>
           </form>
         </div>
@@ -46,11 +46,20 @@
 
     <template x-if="user.isadmin">
       <nav>
-        <a href="./#home" @click="showSection = 'home'">Home</a>
+        <a href="./" @click="showSection = 'home'">Home</a>
         <a href="./#admin" @click="showSection = 'admin'">Admin</a>
+        <a href="./#user" @click="showSection = 'user'">User</a>
       </nav>
     </template>
 
+    <template x-if="user.loggedon && !user.isadmin">
+      <nav>
+        <a href="./" @click="showSection = 'home'">Home</a>
+        <a href="./#user" @click="showSection = 'user'">User</a>
+      </nav>
+    </template>
+
+    
     <div id="content">
       <div id="userfeedback">
         <span x-text="message2user"></span>
@@ -66,8 +75,8 @@
                   <br />
                   <button @click="doDeletePost($data)">Delete post</button>
                   <label for="publicCB">Public:</label>
-                  <input name="publicCB" @click.prevent="doChangePublic($data, $el)" type="checkbox"
-                    x-bind:checked="post.public" x-model="post.public" />
+                  <input name="publicCB" @click.prevent="doChangePublic($data, post.id, $el)" type="checkbox"
+                         x-bind:checked="post.public" x-model="post.public" />
                   <button @click="doChangePublicUntil($data, post.id, 300)" x-show="post.public">5 minutes</button>
                   <button @click="doChangePublicUntil($data, post.id, 3600)" x-show="post.public">1 hour</button>
                   <button @click="doChangePublicUntil($data, post.id, 86400)" x-show="post.public">1 day</button>
@@ -109,49 +118,6 @@
               <p>Simply drag your images and drop them on this section, or paste the picture into this area.</p>
             </div>
           </template>
-
-          <template x-if="user.loggedon">
-            <div id="imagelist">
-              <h2>Your images</h2>
-              <div>
-                <table>
-                  <tr>
-                    <th>Post</th>
-                    <th>Pasted on</th>
-                    <th>Paste ID</th>
-                    <th>Type</th>
-                    <th>Size</th>
-                    <th>Until</th>
-                    <th>Thumbnail</th>
-                    <th>Public</th>
-                    <!-- This is a post public flag, which is really confusing from the UX perspective -->
-                    <th>Del</th>
-                  </tr>
-                  <template x-for="g in myimages">
-                    <tr>
-                      <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
-                      <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
-                      <td x-text="g.id"></td>
-                      <td x-text="g.content_type"></td>
-                      <td x-text="g.size"></td>
-                      <td
-                        x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
-                      </td>
-                      <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
-                      </td>
-                      <td><input @click.prevent="doChangePublic($data, g.postId, $el)" type="checkbox"
-                          x-bind:checked="g.public" />
-                      </td>
-                      <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id);">
-                      </td>
-                    </tr>
-                  </template>
-                </table>
-              </div>
-              <!-- TODO: do we still need this if all our changes properly refresh the list anyway? -->
-              <button @click="getMyImageList($data)">Refresh</button>
-            </div>
-          </template>
         </div>
       </template>
 
@@ -159,7 +125,7 @@
         <div> <!-- root div for template -->
           <div id="createuser">
             <h2>Create new user</h2>
-            <form @submit.prevent="doCreateUser($el, $data)">
+            <form @submit.prevent="doCreateUser($el, $data).then(getUserList($data))">
               <table>
                 <tr>
                   <td>
@@ -167,6 +133,14 @@
                   </td>
                   <td>
                     <input type="text" id="user" name="user" required>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <label for="email">Email:</label>
+                  </td>
+                  <td>
+                    <input type="text" id="email" name="email" required>
                   </td>
                 </tr>
                 <tr>
@@ -218,8 +192,6 @@
             </table>
           </div>
 
-
-
           <div id="sessionlist" x-init="getSessionList($data)" x-data="{sessions: []}">
             <h2>All sessions</h2>
             <table>
@@ -269,7 +241,7 @@
                   <td x-text="g.ip"></td>
                   <td x-text="g.content_type"></td>
                   <td x-text="g.size"></td>
-                  <td><input @click.prevent="doChangePublic($data, g.id, $el)" type="checkbox"
+                  <td><input @click.prevent="doChangePublic($data, g.postId, $el).then(getImageList($data))" type="checkbox"
                       x-bind:checked="g.public" />
                   </td>
                   <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
@@ -282,7 +254,131 @@
 
         </div> <!--- root div for template -->
       </template>
+      <template x-if="showSection == 'user'">
+        <div>
+          <div id="changemypassword">
+            <h2>Change my password</h2>
+            <p x-show="!user.hasPw">Your password is currently not set!</p>
+            <form @submit.prevent="doChangeMyPassword($el, $data)">
+              <table>
+                <tr>
+                  <td>
+                    <label for="password0">Current Password:</label>
+                  </td>
+                  <td>
+                    <input :disabled="!user.hasPw" type="password" id="password0" name="password0" required>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <label for="password1">New password:</label>
+                  </td>
+                  <td><input type="password" id="password1" name="password1" required></td>
+                </tr>
+                <tr>
+                  <td>
+                    <label for="password2">Confirm (password):</label>
+                  </td>
+                  <td><input type="password" id="password2" name="password2" required></td>
+                </tr>
 
+                <tr>
+                  <td colspan="2"><button type="submit">Change</button></td>
+                </tr>
+              </table>
+            </form>
+          </div>
+          <div id="changemyemail">
+            <h2>Change my email</h2>
+            <form @submit.prevent="doChangeMyEmail($el, $data)">
+              <table>
+                <tr>
+                  <td>
+                    <label for="email">Email:</label>
+                  </td>
+                  <td>
+                    <input type="text" x-model="user.email" id="email" name="email" required>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td colspan="2"><button type="submit">Change</button></td>
+                </tr>
+              </table>
+            </form>
+          </div>
+
+          <div id="imagelist">
+            <h2>Your images</h2>
+            <div>
+              <table>
+                <tr>
+                  <th>Post</th>
+                  <th>Pasted on</th>
+                  <th>Paste ID</th>
+                  <th>Type</th>
+                  <th>Size</th>
+                  <th>Until</th>
+                  <th>Thumbnail</th>
+                  <th>Public</th>
+                  <!-- This is a post public flag, which is really confusing from the UX perspective -->
+                  <th>Del</th>
+                </tr>
+                <template x-for="g in myimages">
+                  <tr>
+                    <td><a x-bind:href="'?p='+g.postId" x-text="g.postId"></a></td>
+                    <td x-text="new Date(g.tstamp * 1000).toLocaleString()"></td>
+                    <td x-text="g.id"></td>
+                    <td x-text="g.content_type"></td>
+                    <td x-text="g.size"></td>
+                    <td
+                      x-text="if(g.publicUntilTstamp>0) return new Date(g.publicUntilTstamp * 1000).toLocaleString()">
+                    </td>
+                    <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a>
+                    </td>
+                    <td><input @click.prevent="doChangePublic($data, g.postId, $el).then(getMyImageList($data))" type="checkbox"
+                               x-bind:checked="g.public" />
+                    </td>
+                    <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id);">
+                    </td>
+                  </tr>
+                </template>
+              </table>
+            </div>
+            <!-- TODO: do we still need this if all our changes properly refresh the list anyway? -->
+            <button @click="getMyImageList($data)">Refresh</button>
+          </div>
+          
+          <div id="mySessions">
+            <div id="sessionlist" x-init="getMySessionList($data)" x-data="{sessions: []}">
+              <h2>My sessions</h2>
+              <table>
+                <tr>
+                  <th>ID</th>
+                  <th>IP</th>
+                  <th>Created</th>
+                  <th>Last use</th>
+                  <th>Agent</th>
+                  <th>Kill</th>
+                </tr>
+                <template x-for="s in sessions">
+                  <tr>
+                    <td x-text="s.id"></td>
+                    <td x-text="s.ip"></td>
+                    <td x-text="if(s.createTstamp) return new Date(s.createTstamp * 1000).toLocaleString(); else return ">
+                    </td>
+                    <td
+                      x-text="if(s.lastUseTstamp) return new Date(s.lastUseTstamp * 1000).toLocaleString(); else return ">
+                    </td>
+                    <td style="width: 30%;" x-text="s.agent"></td>
+                    <td class="deleteicon" @click.prevent="doKillMySession($data, s.id)"></td>
+                  </tr>
+                </template>
+              </table>
+            </div>
+          </div>
+        </div>
+      </template>
     </div> <!-- content div -->
     <footer>
       <span>Learn more about Trifecta on <a href="https://github.com/berthubert/trifecta">github</a></span>

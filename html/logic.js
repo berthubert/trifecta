@@ -6,7 +6,6 @@ async function doPageLoad(f) {
         f.showSection = window.location.hash.substring(1);
     }
 
-    console.log(window.location.hash);
     await getLoginStatus(f);
     getMyImageList(f);
     getPost(f);
@@ -32,9 +31,11 @@ function ClearMessage(f) {
 
 async function getLoginStatus(f) {
     f.user = {
-        loggedon: false,
         name: '',
-        isAdmin: false
+        loggedon: false,
+        isadmin: false,
+        email: '',
+        hasPw: false
     }
     const response = await fetch('status');
     if (response.ok === true) {
@@ -43,6 +44,8 @@ async function getLoginStatus(f) {
             f.user.name = data.user;
             f.user.loggedon = true;
             f.user.isadmin = data.admin;
+            f.user.email = data.email;
+            f.user.hasPw = data.hasPw;
         }
     }
 }
@@ -81,6 +84,7 @@ function getImageList(f) {
     });
 }
 function getUserList(f) {
+    console.log("getuserlist called");
     fetch('all-users').then(response => response.json()).then(data => {
         f.users = data;
     });
@@ -88,6 +92,12 @@ function getUserList(f) {
 
 function getSessionList(f) {
     fetch('all-sessions').then(response => response.json()).then(data => {
+        f.sessions = data;
+    });
+}
+
+function getMySessionList(f) {
+    fetch('my-sessions').then(response => response.json()).then(data => {
         f.sessions = data;
     });
 }
@@ -114,15 +124,31 @@ function doLogin(el, f) {
     fetch("login", { method: "POST", body: data })
         .then(response => response.json()).then(data => {
             if (data.ok) {
+                f.user.suggestEmail = false;
                 ClearMessage(f);
                 getLoginStatus(f);
                 getMyImageList(f);
             }
             else {
-                ShowMessage(f, data.message, response);
+                ShowMessage(f, data.message);
             }
         });
 }
+
+function doAskForSigninEmail(el, f) {
+    const data = new FormData(el);
+    
+    fetch("get-signin-email", { method: "POST", body: data })
+        .then(response => response.json()).then(data => {
+            if (data.ok) {
+                ShowMessage(f, data.message);
+            }
+            else {
+                ShowMessage(f, data.message);
+            }
+        });
+}
+
 
 function doDeleteImage(f, imageid) {
     if (window.confirm("Do you really want to delete this image?")) {
@@ -157,6 +183,15 @@ function doKillSession(f, sessionid) {
     });
 }
 
+function doKillMySession(f, sessionid) {
+    fetch(`kill-my-session/${sessionid}`, { method: "POST" }).then(function (res) {
+        if (res.ok) {
+            getMySessionList(f);
+        }
+    });
+}
+
+
 function doDelUser(f, user) {
     if (window.confirm("Do you really want to delete this user?")) {
         fetch("del-user/" + user, { method: "POST" }).then(function (res) {
@@ -167,34 +202,28 @@ function doDelUser(f, user) {
     }
 }
 
-
 function doChangePublic(f, postid, el) {
-    let val = el.checked ? "1" : "0";
+    let newval = el.checked ? 1 : 0;
     el.disabled = true; // disable while transaction is running
 
-    fetch(`set-post-public/${postid}/${val}`, { method: "POST" }).then(function (res) {
+    // the return makes us thennable
+    return fetch(`set-post-public/${postid}/${newval}`, { method: "POST" }).then(function (res) {
         el.disabled = false;
-
         if (res.ok) {
-            if (f.post.id == postid) { // this method is used on the post itself, and on the list of images.
-                getPost(f);             // if we change the post we're currently on, then we should load that post again.
-            }
-            getMyImageList(f);
+            f.post["public"] = newval;
         } else {
             ShowMessage(f, "Failed to change post public status", res);
         }
-    });
+    }); 
 }
 
-
-function doChangePublicUntil(f, seconds) {
+function doChangePublicUntil(f, postid, seconds) {
     let limit = (Date.now() / 1000 + seconds).toFixed();
     if (seconds == 0)
         limit = 0;
-    fetch(`set-post-public/${f.post.id}/${f.post.public}/${limit}`, { method: "POST" }).then(function (res) {
+    fetch(`set-post-public/${postid}/1/${limit}`, { method: "POST" }).then(function (res) {
         if (res.ok) {
             f.post.publicuntil = limit; // we need to propagate this manually
-            getMyImageList(f);
         }
         else {
             ShowMessage(f, "Failed to change post public until", res);
@@ -301,6 +330,35 @@ async function processDrop(f, e) {
 
 function doCreateUser(el, f) {
     let user = el[0].value;
+    let pass1 = el[2].value;
+    let pass2 = el[3].value;
+    ClearMessage(f);
+    if (pass1 != pass2) {
+        ShowMessage(f, "Passwords do not match", true);
+        return;
+    }
+
+    return fetch("create-user", { method: "POST", body: new FormData(el) }).then(function(response)  {
+        if (response.ok) {
+            return response.json().then(data => {
+                if (data.ok) {
+                    console.log("Response in");
+                    ShowMessage(f, "User created");
+                }
+                else {
+                    ShowMessage(f, `Could not create user: ${data.message}`);
+                }
+            });
+        }
+        else {
+            ShowMessage(f, "Failed to create user.", response);
+        }
+    });
+}
+
+
+function doChangeMyPassword(el, f) {
+    let pass0 = el[0].value;
     let pass1 = el[1].value;
     let pass2 = el[2].value;
     ClearMessage(f);
@@ -309,20 +367,40 @@ function doCreateUser(el, f) {
         return;
     }
 
-    fetch("create-user", { method: "POST", body: new FormData(el) }).then(response => {
+    return fetch("change-my-password", { method: "POST", body: new FormData(el) }).then(function(response)  {
         if (response.ok) {
-            response.json().then(data => {
+            return response.json().then(data => {
                 if (data.ok) {
-                    ShowMessage(f, "User created");
-                    getUserList(f);
+                    ShowMessage(f, "Changed password");
+                    f.user.hasPw = true;
                 }
                 else {
-                    ShowMessage(f, `Could not create user: ${data.message}`, response);
+                    ShowMessage(f, `Could not change password: ${data.message}`, response);
                 }
             });
         }
         else {
-            ShowMessage(f, "Failed to create user.", response);
+            ShowMessage(f, "Failed to change password", response);
+        }
+    });
+}
+
+function doChangeMyEmail(el, f) {
+    ClearMessage(f);
+
+    return fetch("change-my-email", { method: "POST", body: new FormData(el) }).then(function(response)  {
+        if (response.ok) {
+            return response.json().then(data => {
+                if (data.ok) {
+                    ShowMessage(f, "Changed email");
+                }
+                else {
+                    ShowMessage(f, `Could not change email: ${data.message}`, response);
+                }
+            });
+        }
+        else {
+            ShowMessage(f, "Failed to change email", response);
         }
     });
 }

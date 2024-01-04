@@ -58,7 +58,7 @@ struct LockedSqw
     res.set_content(packResultsJsonStr(result), "application/json");
   }
 
-  auto queryJStr(const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values={}) 
+  auto queryJRet(const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values={}) 
   {
     auto result = query(q, values);
     return packResultsJson(result);
@@ -88,7 +88,9 @@ struct Users
   bool checkPassword(const std::string& user, const std::string& password) const;
   void createUser(const std::string& user, const std::string& password, const std::string& email, bool admin);
   void changePassword(const std::string& user, const std::string& password);
+  string getEmail(const std::string& user);
   void delUser(const std::string& user);
+  bool hasPassword(const std::string& user);
   bool userHasCap(const std::string& user, const Capability& cap)
   {
     bool ret=false;
@@ -104,6 +106,22 @@ struct Users
   }
   LockedSqw& d_lsqw;
 };
+
+string Users::getEmail(const std::string& user)
+{
+  string ret;
+  auto res = d_lsqw.query("select email from users where user=?", {user});
+  if(res.size() == 1)
+    ret = get<string>(res[0]["email"]);
+  return ret;
+}
+
+bool Users::hasPassword(const std::string& user)
+{
+  auto res = d_lsqw.query("select pwhash from users where user=?", {user});
+  return res.size() == 1 && !get<string>(res[0]["pwhash"]).empty();
+}
+
 
 bool Users::checkPassword(const std::string& user, const std::string& password) const
 {
@@ -127,9 +145,10 @@ void Users::delUser(const std::string& user)
   d_lsqw.query("delete from users where user=?", {user});
 }
 
+// empty disables password
 void Users::changePassword(const std::string& user, const std::string& password)
 {
-  string pwhash = bcrypt::generateHash(password);
+  string pwhash = password.empty() ? "" : bcrypt::generateHash(password);
   auto res = d_lsqw.query("select user from users where user=?", {user});
   if(res.size()!=1 || get<string>(res[0]["user"]) != user) {
     d_lsqw.addValue({{"action", "change-password-failure"}, {"user", user}, {"ip", "xx missing xx"}, {"meta", "no such user"}, {"tstamp", time(0)}}, "log");
@@ -318,13 +337,14 @@ int trifectaMain(int argc, const char**argv)
     } catch (...) {
       reason = "An unknown error occurred";
     }
-    cout<<req.path<<": 500 created for "<<reason<<endl;
+    cout<<req.path<<": exception for "<<reason<<endl;
     nlohmann::json j;
     j["ok"]=0;
+    j["message"]=reason;
     j["reason"]=reason;
     res.set_content(j.dump(), "application/json");
                   
-    res.status = 500;
+    res.status = 200;
   });
 
   svr.set_mount_point("/", args.get<string>("html-dir"));
@@ -376,6 +396,8 @@ int trifectaMain(int argc, const char**argv)
     if(!user.empty()) {
       j["user"] = user;
       j["admin"]=u.userHasCap(user, Capability::Admin);
+      j["email"] = u.getEmail(user);
+      j["hasPw"] = u.hasPassword(user);
     }
     return j;
   });
@@ -404,17 +426,50 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  // this is for use in email evntually
-  wrapGet({}, "/join-session/:sessionid", [&lsqw](const auto& req, auto& res, const string&) {
+  wrapGet({}, "/join-session/:sessionid", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
     string sessionid = req.path_params.at("sessionid");
 
-    res.set_header("Set-Cookie",
-                   "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-    res.set_header("Location", "../");
-    res.status = 303;
-    return pair(string(""), string("text/html"));
+    auto c = lsqw.query("select user, id from sessions where id=?", {sessionid});
+    if(c.size()==1) {
+      string user= get<string>(c[0]["user"]);
+      cout<<"Found user, blanking out password"<<endl;
+      u.changePassword(user, "");
+
+      // delete this temporary session
+      lsqw.query("delete from sessions where id=? and user=?", {sessionid, user});
+      string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req));
+      cout<<"Created new session id "<<newsessionid<<endl;
+      res.set_header("Set-Cookie",
+                     "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+      
+      res.set_header("Location", "../#user");
+      res.status = 303;
+      return pair(string(""), string("text/html"));
+    }
+
+    return pair<string,string>("Unknown session id", "text/html");
   });
 
+  wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
+    string user = req.get_file_value("user").content;
+    string email = u.getEmail(user); // CHECK FOR DISABLED USER!!
+    fmt::print("User '{}', email '{}'\n", user, email);
+    nlohmann::json j;
+    j["message"] = "If this user exists and has an email address, a message was sent";
+    j["ok"]=1;
+    if(!email.empty()) {
+      string session = sessions.createSessionForUser(user, "Change password session", getIP(req));
+      string dest="http://127.0.0.1:1234/";
+      sendAsciiEmailAsync("bert@hubertnet.nl", email, "Trifecta sign-in link", "Going to this link will reset your password and sign you in: "+dest+"join-session/"+session+"\n. Enjoy!");
+      cout<<"Sent email pointing user at "<<dest<<"/join-session/"<<session<<endl;
+    }
+    else
+      cout<<"Had no email address.."<<endl;
+    
+    return j;
+  });
+
+  
   wrapGet({}, "/getPost/:postid", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
     string postid = req.path_params.at("postid");
 
@@ -554,12 +609,9 @@ int trifectaMain(int argc, const char**argv)
   });
   
   wrapPost({Capability::IsUser}, "/set-image-caption/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    
     string imgid = req.matches[1];
-    
     string caption = req.get_file_value("caption").content;
     
-    cout<<"Attemping to set caption for image "<< imgid<<" for user " << user <<" to " << caption << endl;
     checkImageOwnership(lsqw, u, user, imgid);
     lsqw.query("update images set caption=? where id=?", {caption, imgid});
     lsqw.addValue({{"action", "set-image-caption"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
@@ -567,24 +619,34 @@ int trifectaMain(int argc, const char**argv)
   });
   
   wrapPost({Capability::IsUser}, "/change-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    auto pwfield = req.get_file_value("password");
+    auto origpwfield = req.get_file_value("password0");
+    auto pwfield = req.get_file_value("password1");
     if(pwfield.content.empty())
       throw std::runtime_error("Can't set an empty password");
-    
+    if(u.hasPassword(user) && !u.checkPassword(user, origpwfield.content)) {
+      throw std::runtime_error("Original password not correct");
+    }
     cout<<"Attemping to set password for user "<<user<<endl;
     u.changePassword(user, pwfield.content);
-    return nlohmann::json();
+    nlohmann::json j;
+    j["ok"]=1;
+    return j;
   });
-  
+
+  wrapPost({Capability::IsUser}, "/change-my-email/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+    auto email = req.get_file_value("email").content;
+    auto ret= lsqw.queryJRet("update users set email=? where user=?", {email, user});
+    ret["ok"]=1;
+    return ret;
+  });
+
   wrapPost({Capability::IsUser}, "/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     string postid = req.matches[1];
     bool pub = stoi(req.matches[2]);
-    
     time_t until=0;
     
     if(!canTouchPost(lsqw, u, user, postid))
       throw std::runtime_error("Attempt to change public status of post you can't touch");
-    
     if(req.matches.size() > 3) {
       string untilStr = req.matches[3];
       if(!untilStr.empty())
@@ -603,8 +665,20 @@ int trifectaMain(int argc, const char**argv)
   });
     
   wrapGet({Capability::IsUser}, "/my-images", [&lsqw](const auto &req, auto &res, const string& user) {
-    return lsqw.queryJStr("select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {user});
+    return lsqw.queryJRet("select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {user});
     });
+
+  wrapGet({Capability::IsUser}, "/my-sessions", [&lsqw](const auto&req, auto &res, const string& user) {
+    return lsqw.queryJRet("select * from sessions where user = ?", {user});
+  });
+
+  wrapPost({Capability::IsUser}, "/kill-my-session/([^/]+)", [&lsqw](const auto& req, auto& res, const string& user) {
+    string session = req.matches[1];
+    lsqw.query("delete from sessions where id=? and user=?", {session, user});
+    lsqw.addValue({{"action", "kill-my-session"}, {"user", user}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
+    return nlohmann::json();
+  });
+
   
   wrapPost({Capability::IsUser}, "/logout", [&lsqw, &sessions](const auto &req, auto &res, const string& user)  {
     lsqw.addValue({{"action", "logout"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
@@ -621,20 +695,21 @@ int trifectaMain(int argc, const char**argv)
   });
 
   wrapGet({Capability::Admin}, "/all-images", [&lsqw](const auto &req, auto &res, const string& user) {
-    return lsqw.queryJStr("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
+    return lsqw.queryJRet("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
   });
     
   wrapGet({Capability::Admin}, "/all-users", [&lsqw](const auto &req, auto &res, const string& ) {
-    return lsqw.queryJStr("select user, email, disabled, lastLoginTstamp, admin from users");
+    return lsqw.queryJRet("select user, email, disabled, lastLoginTstamp, admin from users");
   });
     
   wrapGet({Capability::Admin}, "/all-sessions", [&lsqw](const auto&req, auto &res, const string& user) {
-    return lsqw.queryJStr("select * from sessions");
+    return lsqw.queryJRet("select * from sessions");
   });
     
   wrapPost({Capability::Admin}, "/create-user", [&u](const auto &req, auto &res, const string& ) {
     string password1 = req.get_file_value("password1").content;
     string user = req.get_file_value("user").content;
+    string email = req.get_file_value("email").content;
     nlohmann::json j;
       
     if(password1.empty() || user.empty()) {
@@ -642,14 +717,8 @@ int trifectaMain(int argc, const char**argv)
       j["message"] = "User or password field empty";
     }
     else {
-      try {
-        u.createUser(user, password1, "", false);
-        j["ok"] = true;
-      }
-      catch(std::exception& e) {
-        j["ok"]=false;
-        j["message"]=e.what();
-      }
+      u.createUser(user, password1, email, false);
+      j["ok"] = true;
     }
     return j;
   });
