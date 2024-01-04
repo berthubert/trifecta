@@ -25,7 +25,7 @@
                     window.location.href = "./";
                     return;
                 }
-                const response2 = await fetch('/wipe-my-password', {method: "POST"});
+                const response2 = await fetch('wipe-my-password', {method: "POST"});
                 const data2 = await response2.json();
                 window.location.href = "./#user";
                 return;
