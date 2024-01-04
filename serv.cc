@@ -630,14 +630,17 @@ int trifectaMain(int argc, const char**argv)
     u.changePassword(user, pwfield.content);
     nlohmann::json j;
     j["ok"]=1;
+    j["message"]="Changed password";
     return j;
   });
 
   wrapPost({Capability::IsUser}, "/change-my-email/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     auto email = req.get_file_value("email").content;
     auto ret= lsqw.queryJRet("update users set email=? where user=?", {email, user});
-    ret["ok"]=1;
-    return ret;
+    nlohmann::json j;
+    j["ok"]=1;
+    j["message"]="Changed email";
+    return j;
   });
 
   wrapPost({Capability::IsUser}, "/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
