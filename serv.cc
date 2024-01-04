@@ -192,6 +192,13 @@ public:
     try {
       auto ret = d_lsqw.query("select * from sessions where id=?", {sessionid});
       if(ret.size()==1) {
+        if(std::get<int64_t>(ret[0]["authenticated"]) &&
+           std::get<int64_t>(ret[0]["createTstamp"]) < time(0) - 86400) {
+          cout<<"Authenticated session expired"<<endl;
+          d_lsqw.query("delete from sessions where id=?", {sessionid});
+          return "";
+        }
+        
         d_lsqw.query("update sessions set lastUseTstamp=?, agent=?, ip=? where id=?", {time(0), agent, ip, sessionid});
         return get<string>(ret[0]["user"]);
       }
@@ -436,8 +443,8 @@ int trifectaMain(int argc, const char**argv)
     string sessionid = req.matches[1];
     nlohmann::json j;
     j["ok"]=0;
-
-    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1", {sessionid});
+    // valid for only one day
+    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and createTstamp > ?", {sessionid, time(0)-86400});
     if(c.size()==1) {
       // delete this temporary session
       string user= get<string>(c[0]["user"]);
