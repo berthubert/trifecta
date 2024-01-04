@@ -344,7 +344,7 @@ int trifectaMain(int argc, const char**argv)
     j["reason"]=reason;
     res.set_content(j.dump(), "application/json");
                   
-    res.status = 200;
+    res.status = 500;
   });
 
   svr.set_mount_point("/", args.get<string>("html-dir"));

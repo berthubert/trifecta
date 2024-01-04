@@ -519,7 +519,8 @@ TEST_CASE("change my password") {
   auto harrySession = createAndLoginUser(cli, adminSession, "harry", "harrypw");
 
   httplib::MultipartFormDataItems items = {
-    { "password", "newharrypw", "password"}
+    { "password0", "harrypw", "password0"}, 
+    { "password1", "newharrypw", "password1"}
   };
   
   
