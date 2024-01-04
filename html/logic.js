@@ -358,9 +358,8 @@ function doCreateUser(el, f) {
 
 
 function doChangeMyPassword(el, f) {
-    let pass0 = el[0].value;
-    let pass1 = el[1].value;
-    let pass2 = el[2].value;
+    let pass1 = el["password1"].value;
+    let pass2 = el["password2"].value;
     ClearMessage(f);
     if (pass1 != pass2) {
         ShowMessage(f, "Passwords do not match", true);

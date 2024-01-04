@@ -261,12 +261,12 @@
             <p x-show="!user.hasPw">Your password is currently not set!</p>
             <form @submit.prevent="doChangeMyPassword($el, $data)">
               <table>
-                <tr>
+                <tr x-show="user.hasPw">
                   <td>
                     <label for="password0">Current Password:</label>
                   </td>
                   <td>
-                    <input :disabled="!user.hasPw" type="password" id="password0" name="password0" required>
+                    <input type="password" id="password0" name="password0" required>
                   </td>
                 </tr>
                 <tr>
