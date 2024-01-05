@@ -55,9 +55,9 @@ string makeShortID(int64_t id)
 }
 
 // do not put UTF-8 or anything in this, it won't work. US-ASCII. 
-void sendAsciiEmailAsync(const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody)
+void sendAsciiEmailAsync(const std::string& server, const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody)
 {
-  ComboAddress mailserver("10.0.0.2:25");
+  ComboAddress mailserver(server);
   Socket s(mailserver.sin4.sin_family, SOCK_STREAM);
 
   SocketCommunicator sc(s);

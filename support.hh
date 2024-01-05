@@ -9,4 +9,4 @@ int64_t getRandom63();
 std::string makeShortID(int64_t id);
 
 std::string& testrunnerPw();
-void sendAsciiEmailAsync(const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody);
+void sendAsciiEmailAsync(const std::string& server, const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody);

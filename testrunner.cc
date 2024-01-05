@@ -538,7 +538,7 @@ TEST_CASE("change my password") {
 }
 
 TEST_CASE("email test" * doctest::skip(true)) {
-  sendAsciiEmailAsync("bert@hubertnet.nl", "bert@hubertnet.nl", "Le Sujet",
+  sendAsciiEmailAsync("10.0.0.2:25", "bert@hubertnet.nl", "bert@hubertnet.nl", "Le Sujet",
                  R"(Hallo,
 
 Dit is een test van meerdere regels.

@@ -19,15 +19,11 @@ using namespace std;
 
 /*
 Todo:
-  Configuration items in database
   if a user is disabled, do images/posts turn into 404s?
-
   opengraph data for previews, how? iframe?
 
   how do we deal with errors?  500? or a JSON thing?
-    authentication/authorization error?
-    impossible requests?
-      "trying to delete an image that does not exist"
+    plan: never do 500, always set an 'ok' field 
 */
 
 std::string& testrunnerPw()
@@ -126,7 +122,6 @@ bool Users::hasPassword(const std::string& user)
   return res.size() == 1 && !get<string>(res[0]["pwhash"]).empty();
 }
 
-
 bool Users::checkPassword(const std::string& user, const std::string& password) const
 {
   auto res = d_lsqw.query("select pwhash, caps from users where user=? and disabled=0", {user});
@@ -162,7 +157,6 @@ void Users::changePassword(const std::string& user, const std::string& password)
   d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
-
 // XXXX should only trust X-Real-IP if traffic is from a known and trusted proxy
 string getIP(const httplib::Request& req) 
 {
@@ -176,7 +170,7 @@ class Sessions
 public:
   Sessions(LockedSqw& lsqw) : d_lsqw(lsqw)
   {}
-
+  // empty string = no user
   string getUserForSession(const std::string& sessionid, const std::string& agent, const std::string& ip) const
   {
     try {
@@ -271,17 +265,24 @@ int trifectaMain(int argc, const char**argv)
   args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
   args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").flag();
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
-  args.add_argument("--local-address", "-l").help("address to listen on").default_value("0.0.0.0");
+  args.add_argument("--local-address", "-l").help("address to listen on").default_value("127.0.0.1");
+  args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value("127.0.0.1:25");
+  args.add_argument("--smtp-from", "-f").help("Origin/from email address to use").default_value("changeme@example.com");
+  args.add_argument("--canonical-url", "-c").help("Canonical URL of service").default_value("");
 
+  string canURL;
   try {
     args.parse_args(argc, argv);
+    canURL=args.get<string>("canonical-url");
+    if(canURL.empty()) {
+      canURL="http://"+args.get<string>("local-address")+":"+to_string(args.get<int>("port"));
+    }
   }
   catch (const std::runtime_error& err) {
-    std::cout << err.what() << std::endl;
-    std::cout << args;
+    std::cout << err.what() << std::endl << args;
     std::exit(1);
   }
-  fmt::print("Database is in {}\n", args.get<string>("db-file"));
+  fmt::print("Database is in {}, canonical URL is {}\n", args.get<string>("db-file"), canURL);
   SQLiteWriter sqw(args.get<string>("db-file"),
                    {
                      {"users", {{"user", "PRIMARY KEY"}}},
@@ -453,7 +454,7 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
+  wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u, &canURL, &args](const auto &req, httplib::Response &res, const std::string& ign) {
     string user = req.get_file_value("user").content;
     string email = u.getEmail(user); // CHECK FOR DISABLED USER!!
     fmt::print("User '{}', email '{}'\n", user, email);
@@ -463,9 +464,13 @@ int trifectaMain(int argc, const char**argv)
     if(!email.empty()) {
       // valid for 1 day
       string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true, time(0)+86400); // authenticated session
-      string dest="http://127.0.0.1:1234/";
-      sendAsciiEmailAsync("bert@hubertnet.nl", email, "Trifecta sign-in link", "Going to this link will allow you to reset your password or sign you in directly: "+dest+"reset.html?session="+session+"\nEnjoy!");
-      cout<<"Sent email pointing user at "<<dest<<"/reset.html?session="<<session<<endl;
+      string dest=canURL;
+      if(dest.empty() || *dest.rbegin()!='/')
+        dest += '/';
+      dest += "reset.html?session="+session;
+      sendAsciiEmailAsync(args.get<string>("smtp-server"), args.get<string>("smtp-from"), email, "Trifecta sign-in link",
+                          "Going to this link will allow you to reset your password or sign you in directly: "+dest+"\nEnjoy!");
+      cout<<"Sent email pointing user at "<<dest<<endl;
     }
     else
       cout<<"Had no email address for user "<<user<<endl;
