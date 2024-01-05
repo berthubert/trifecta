@@ -4,15 +4,8 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
-
 #include "argparse/argparse.hpp"
-#include "bcrypt.h"
 #include "fmt/core.h"
-#include "httplib.h"
-#include "jsonhelper.hh"
-#include "nlohmann/json.hpp"
-#include "sqlwriter.hh"
-
 #include "support.hh"
 using namespace std;
 
@@ -25,194 +18,8 @@ Todo:
     plan: never do 500, always set an 'ok' field 
 */
 
-std::string& testrunnerPw()
-{
-  static string testrunnerpw; // this is so the testrunner can get the newly created password
-  return testrunnerpw;
-}
-
-// helper that makes sure only 1 thread uses the sqlitewriter at a time, plus some glue to emit answers as json
-struct LockedSqw
-{
-  LockedSqw(const LockedSqw&) = delete;
-
-  SQLiteWriter& sqw;
-  std::mutex& sqwlock;
-  vector<unordered_map<string, MiniSQLite::outvar_t>> query(const std::string& query, const std::initializer_list<SQLiteWriter::var_t>& values ={})
-  {
-    std::lock_guard<mutex> l(sqwlock);
-    return sqw.queryT(query, values);
-  }
-
-  void queryJ(httplib::Response &res, const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values={}) 
-  {
-    auto result = query(q, values);
-    res.set_content(packResultsJsonStr(result), "application/json");
-  }
-
-  auto queryJRet(const std::string& q, const std::initializer_list<SQLiteWriter::var_t>& values={}) 
-  {
-    auto result = query(q, values);
-    return packResultsJson(result);
-  }
-  
-  void addValue(const std::initializer_list<std::pair<const char*, SQLiteWriter::var_t>>& values, const std::string& table="data")
-  {
-    std::lock_guard<mutex> l(sqwlock);
-    sqw.addValue(values, table);
-  }
-};
 
 
-enum class Capability {IsUser=1, Admin=2, EmailAuthenticated=3};
-
-// teases the session cookie from the headers
-string getSessionID(const httplib::Request &req) 
-{
-  auto cookies = getCookies(req.get_header_value("Cookie"));
-  auto siter = cookies.find("session");
-  if(siter == cookies.end()) {
-    throw std::runtime_error("No session cookie");
-  }
-  return siter->second;
-}
-
-struct Users
-{
-  Users(LockedSqw& lsqw) : d_lsqw(lsqw)
-  {}
-  bool checkPassword(const std::string& user, const std::string& password) const;
-  void createUser(const std::string& user, const std::string& password, const std::string& email, bool admin);
-  void changePassword(const std::string& user, const std::string& password);
-  string getEmail(const std::string& user);
-  void delUser(const std::string& user);
-  bool hasPassword(const std::string& user);
-  bool userHasCap(const std::string& user, const Capability& cap, const httplib::Request* req=0)
-  {
-    bool ret=false;
-    if(cap== Capability::IsUser) {
-      auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0", {user});
-      ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
-    }
-    else if(cap==Capability::Admin) {
-      auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0 and admin=1", {user});
-      ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
-    } else if(cap==Capability::EmailAuthenticated && req) {
-      auto c = d_lsqw.query("select count(1) as c from sessions where user=? and authenticated=1 and id=?", {user, getSessionID(*req)});
-      ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
-    }
-    return ret;
-  }
-  LockedSqw& d_lsqw;
-};
-
-string Users::getEmail(const std::string& user)
-{
-  string ret;
-  auto res = d_lsqw.query("select email from users where user=?", {user});
-  if(res.size() == 1)
-    ret = get<string>(res[0]["email"]);
-  return ret;
-}
-
-bool Users::hasPassword(const std::string& user)
-{
-  auto res = d_lsqw.query("select pwhash from users where user=?", {user});
-  return res.size() == 1 && !get<string>(res[0]["pwhash"]).empty();
-}
-
-bool Users::checkPassword(const std::string& user, const std::string& password) const
-{
-  auto res = d_lsqw.query("select pwhash, caps from users where user=? and disabled=0", {user});
-  if(res.empty()) {
-    cout<<"No such user '"<< user << "'" <<endl;
-    return false;
-  }
-  return bcrypt::validatePassword(password, get<string>(res[0]["pwhash"]));
-}
-
-void Users::createUser(const std::string& user, const std::string& password, const std::string& email, bool admin)
-{
-  string pwhash = bcrypt::generateHash(password);
-  d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
-  d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
-}
-
-void Users::delUser(const std::string& user)
-{
-  d_lsqw.query("delete from users where user=?", {user});
-}
-
-// empty disables password
-void Users::changePassword(const std::string& user, const std::string& password)
-{
-  string pwhash = password.empty() ? "" : bcrypt::generateHash(password);
-  auto res = d_lsqw.query("select user from users where user=?", {user});
-  if(res.size()!=1 || get<string>(res[0]["user"]) != user) {
-    d_lsqw.addValue({{"action", "change-password-failure"}, {"user", user}, {"ip", "xx missing xx"}, {"meta", "no such user"}, {"tstamp", time(0)}}, "log");
-    throw std::runtime_error("Tried to change password for user '"+user+"', but does not exist");
-  }
-  d_lsqw.query("update users set pwhash=? where user=?", {pwhash, user});
-  d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
-}
-
-// XXXX should only trust X-Real-IP if traffic is from a known and trusted proxy
-string getIP(const httplib::Request& req) 
-{
-  if(req.has_header("X-Real-IP"))
-    return req.get_header_value("X-Real-IP");
-  return req.remote_addr;
-}
-
-class Sessions
-{
-public:
-  Sessions(LockedSqw& lsqw) : d_lsqw(lsqw)
-  {}
-  // empty string = no user
-  string getUserForSession(const std::string& sessionid, const std::string& agent, const std::string& ip) const
-  {
-    try {
-      auto ret = d_lsqw.query("select * from sessions where id=?", {sessionid});
-      if(ret.size()==1) {
-        time_t expire = std::get<int64_t>(ret[0]["expireTstamp"]);
-        if(expire && expire < time(0)) {
-          cout<<"Authenticated session expired"<<endl;
-          d_lsqw.query("delete from sessions where id=?", {sessionid});
-          return "";
-        }
-        
-        d_lsqw.query("update sessions set lastUseTstamp=?, agent=?, ip=? where id=?", {time(0), agent, ip, sessionid});
-        return get<string>(ret[0]["user"]);
-      }
-    }
-    catch(std::exception&e ){ cout<<"Error: "<<e.what()<<endl;}
-    return "";
-  }
-
-  string createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip, bool authenticated=false, std::optional<time_t> expire={})
-  {
-    string sessionid=makeShortID(getRandom63())+makeShortID(getRandom63());
-    d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)},
-                     {"lastUseTstamp", 0}, {"expireTstamp", expire.value_or(0)},
-                     {"authenticated", (int)authenticated}}, "sessions");
-    return sessionid;
-  }
-
-  void dropSession(const std::string& sessionid)
-  {
-    d_lsqw.query("delete from sessions where id=?", {sessionid});
-  }
-
-  string getUser(const httplib::Request &req)  const
-  {
-    string ip=getIP(req), agent= req.get_header_value("User-Agent");
-    return getUserForSession(getSessionID(req), agent, ip);
-  }
-
-private:
-  LockedSqw& d_lsqw;
-};
 
 void checkImageOwnership(LockedSqw& lsqw, Users& u, const std::string& user, const std::string& imgid)
 {
@@ -385,92 +192,12 @@ int trifectaMain(int argc, const char**argv)
     };
     getOrPost ? svr.Get(pattern, func) : svr.Post(pattern, func);
   };
+
   auto wrapGet = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) { wrapGetOrPost(true, caps, pattern, f); };
   auto wrapPost = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) {
     wrapGetOrPost(false, caps, pattern, f);
   };
- 
-  wrapGet({}, "/status", [&u](const auto &req, httplib::Response &res, const std::string& user) {
-    nlohmann::json j{{"ok", 1}};
-    j["login"] = !user.empty();
-    j["admin"] = false;
-    if(!user.empty()) {
-      j["user"] = user;
-      j["admin"] = u.userHasCap(user, Capability::Admin);
-      j["email"] = u.getEmail(user);
-      j["hasPw"] = u.hasPassword(user);
-    }
-    return j;
-  });
-
-  wrapPost({}, "/login", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
-    string user = req.get_file_value("user").content;
-    string password = req.get_file_value("password").content;
-    nlohmann::json j{{"ok", 0}};
-    if(u.checkPassword(user, password)) {
-      string ip=getIP(req), agent= req.get_header_value("User-Agent");
-      string sessionid = sessions.createSessionForUser(user, agent, ip);
-      res.set_header("Set-Cookie",
-                     "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-      cout<<"Logged in user "<<user<<endl;
-      j["ok"]=1;
-      j["message"]="welcome!";
-      lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
-      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
-    }
-    else {
-      cout<<"Wrong user or password for user " << user <<endl;
-      j["message"]="Wrong user or password";
-      lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
-    }
-    return j;
-  });
-
-  wrapPost({}, "/join-session/(.*)", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
-    string sessionid = req.matches[1];
-    nlohmann::json j{{"ok", 0}};
-
-    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
-    if(c.size()==1) {
-      string user= get<string>(c[0]["user"]);
-      // delete this temporary session
-      lsqw.query("delete from sessions where id=? and user=?", {sessionid, user});
-      // emailauthenticated session so it can reset your password, but no expiration
-      string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req), true);
-      res.set_header("Set-Cookie",
-                     "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
-      j["ok"]=1;
-    }
-    else
-      cout<<"Could not find authenticated session "<<sessionid<<endl;
-    return j;
-  });
-
-  wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u, &canURL, &args](const auto &req, httplib::Response &res, const std::string& ign) {
-    string user = req.get_file_value("user").content;
-    string email = u.getEmail(user); // CHECK FOR DISABLED USER!!
-    fmt::print("User '{}', email '{}'\n", user, email);
-    nlohmann::json j;
-    j["message"] = "If this user exists and has an email address, a message was sent";
-    j["ok"]=1;
-    if(!email.empty()) {
-      // valid for 1 day
-      string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true, time(0)+86400); // authenticated session
-      string dest=canURL;
-      if(dest.empty() || *dest.rbegin()!='/')
-        dest += '/';
-      dest += "reset.html?session="+session;
-      sendAsciiEmailAsync(args.get<string>("smtp-server"), args.get<string>("smtp-from"), email, "Trifecta sign-in link",
-                          "Going to this link will allow you to reset your password or sign you in directly: "+dest+"\nEnjoy!");
-      cout<<"Sent email pointing user at "<<dest<<endl;
-    }
-    else
-      cout<<"Had no email address for user "<<user<<endl;
-    
-    return j;
-  });
-
+   
   wrapGet({}, "/getPost/:postid", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
     string postid = req.path_params.at("postid");
     nlohmann::json j;
@@ -611,31 +338,7 @@ int trifectaMain(int argc, const char**argv)
     lsqw.addValue({{"action", "set-image-caption"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
-
-  wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    u.changePassword(user, "");
-    return nlohmann::json{{"ok", 1}};
-  });
   
-  wrapPost({Capability::IsUser}, "/change-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    auto origpwfield = req.get_file_value("password0");
-    auto pwfield = req.get_file_value("password1");
-    if(pwfield.content.empty())
-      throw std::runtime_error("Can't set an empty password");
-    if(u.hasPassword(user) && !u.checkPassword(user, origpwfield.content)) {
-      throw std::runtime_error("Original password not correct");
-    }
-    cout<<"Attemping to set password for user "<<user<<endl;
-    u.changePassword(user, pwfield.content);
-    return nlohmann::json{{"ok", 1}, {"message", "Changed password"}};
-  });
-
-  wrapPost({Capability::IsUser}, "/change-my-email/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    auto email = req.get_file_value("email").content;
-    auto ret= lsqw.queryJRet("update users set email=? where user=?", {email, user});
-    return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
-  });
-
   wrapPost({Capability::IsUser}, "/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     string postid = req.matches[1];
     bool pub = stoi(req.matches[2]);
@@ -664,13 +367,96 @@ int trifectaMain(int argc, const char**argv)
     return lsqw.queryJRet("select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {user});
     });
 
+  wrapGet({Capability::Admin}, "/all-images", [&lsqw](const auto &req, auto &res, const string& user) {
+    return lsqw.queryJRet("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
+  });
+
+  // standard:
+
+  wrapGet({}, "/status", [&u](const auto &req, httplib::Response &res, const std::string& user) {
+    nlohmann::json j{{"ok", 1}};
+    j["login"] = !user.empty();
+    j["admin"] = false;
+    if(!user.empty()) {
+      j["user"] = user;
+      j["admin"] = u.userHasCap(user, Capability::Admin);
+      j["email"] = u.getEmail(user);
+      j["hasPw"] = u.hasPassword(user);
+    }
+    return j;
+  });
+
+  wrapPost({}, "/login", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
+    string user = req.get_file_value("user").content;
+    string password = req.get_file_value("password").content;
+    nlohmann::json j{{"ok", 0}};
+    if(u.checkPassword(user, password)) {
+      string ip=getIP(req), agent= req.get_header_value("User-Agent");
+      string sessionid = sessions.createSessionForUser(user, agent, ip);
+      res.set_header("Set-Cookie",
+                     "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+      cout<<"Logged in user "<<user<<endl;
+      j["ok"]=1;
+      j["message"]="welcome!";
+      lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
+    }
+    else {
+      cout<<"Wrong user or password for user " << user <<endl;
+      j["message"]="Wrong user or password";
+      lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+    }
+    return j;
+  });
+
+  wrapPost({Capability::IsUser}, "/change-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+    auto origpwfield = req.get_file_value("password0");
+    auto pwfield = req.get_file_value("password1");
+    if(pwfield.content.empty())
+      throw std::runtime_error("Can't set an empty password");
+    if(u.hasPassword(user) && !u.checkPassword(user, origpwfield.content)) {
+      throw std::runtime_error("Original password not correct");
+    }
+    cout<<"Attemping to set password for user "<<user<<endl;
+    u.changePassword(user, pwfield.content);
+    return nlohmann::json{{"ok", 1}, {"message", "Changed password"}};
+  });
+  
+  wrapPost({}, "/join-session/(.*)", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
+    string sessionid = req.matches[1];
+    nlohmann::json j{{"ok", 0}};
+
+    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
+    if(c.size()==1) {
+      string user= get<string>(c[0]["user"]);
+      // delete this temporary session
+      sessions.dropSession(sessionid, user);
+      // emailauthenticated session so it can reset your password, but no expiration
+      string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req), true);
+      res.set_header("Set-Cookie",
+                     "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
+      j["ok"]=1;
+    }
+    else
+      cout<<"Could not find authenticated session "<<sessionid<<endl;
+    return j;
+  });
+
+  wrapPost({Capability::IsUser}, "/change-my-email/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+    auto email = req.get_file_value("email").content;
+    u.setEmail(user, email);
+    return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
+  });
+
+
   wrapGet({Capability::IsUser}, "/my-sessions", [&lsqw](const auto&req, auto &res, const string& user) {
     return lsqw.queryJRet("select * from sessions where user = ?", {user});
   });
 
-  wrapPost({Capability::IsUser}, "/kill-my-session/([^/]+)", [&lsqw](const auto& req, auto& res, const string& user) {
+  wrapPost({Capability::IsUser}, "/kill-my-session/([^/]+)", [&lsqw, &sessions](const auto& req, auto& res, const string& user) {
     string session = req.matches[1];
-    lsqw.query("delete from sessions where id=? and user=?", {session, user});
+    sessions.dropSession(session, user);
     lsqw.addValue({{"action", "kill-my-session"}, {"user", user}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
@@ -688,9 +474,6 @@ int trifectaMain(int argc, const char**argv)
     return nlohmann::json{{"ok", 1}};
   });
 
-  wrapGet({Capability::Admin}, "/all-images", [&lsqw](const auto &req, auto &res, const string& user) {
-    return lsqw.queryJRet("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
-  });
     
   wrapGet({Capability::Admin}, "/all-users", [&lsqw](const auto &req, auto &res, const string& ) {
     return lsqw.queryJRet("select user, email, disabled, lastLoginTstamp, admin from users");
@@ -722,7 +505,7 @@ int trifectaMain(int argc, const char**argv)
     bool disabled = stoi(req.matches[2]);
     lsqw.query("update users set disabled = ? where user=?", {disabled, user});
     if(disabled) {
-      lsqw.query("delete from sessions where user=?", {user});
+      lsqw.query("delete from sessions where user=?", {user}); // XX candidate for Sessions class
     }
     lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
@@ -739,9 +522,9 @@ int trifectaMain(int argc, const char**argv)
     return nlohmann::json{{"ok", 1}};
   });
     
-  wrapPost({Capability::Admin}, "/kill-session/([^/]+)", [&lsqw](const auto& req, auto& res, const string& ign) {
+  wrapPost({Capability::Admin}, "/kill-session/([^/]+)", [&lsqw, &sessions](const auto& req, auto& res, const string& ign) {
     string session = req.matches[1];
-    lsqw.query("delete from sessions where id=?", {session});
+    sessions.dropSession(session);
     lsqw.addValue({{"action", "kill-session"}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
@@ -754,7 +537,37 @@ int trifectaMain(int argc, const char**argv)
     lsqw.addValue({{"action", "del-user"}, {"ip", getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
+
+  wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+    u.changePassword(user, "");
+    return nlohmann::json{{"ok", 1}};
+  });
+  
+  wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u, &canURL, &args](const auto &req, httplib::Response &res, const std::string& ign) {
+    string user = req.get_file_value("user").content;
+    string email = u.getEmail(user); // CHECK FOR DISABLED USER!!
+    fmt::print("User '{}', email '{}'\n", user, email);
+    nlohmann::json j;
+    j["message"] = "If this user exists and has an email address, a message was sent";
+    j["ok"]=1;
+    if(!email.empty()) {
+      // valid for 1 day
+      string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true, time(0)+86400); // authenticated session
+      string dest=canURL;
+      if(dest.empty() || *dest.rbegin()!='/')
+        dest += '/';
+      dest += "reset.html?session="+session;
+      sendAsciiEmailAsync(args.get<string>("smtp-server"), args.get<string>("smtp-from"), email, "Trifecta sign-in link",
+                          "Going to this link will allow you to reset your password or sign you in directly: "+dest+"\nEnjoy!");
+      cout<<"Sent email pointing user at "<<dest<<endl;
+    }
+    else
+      cout<<"Had no email address for user "<<user<<endl;
     
+    return j;
+  });
+
+  
   wrapPost({Capability::Admin}, "/stop" , [&lsqw, &svr](const auto& req, auto& res, const string& wuser) {
     lsqw.addValue({{"action", "stop"}, {"ip", getIP(req)}, {"user", wuser}, {"tstamp", time(0)}}, "log");
     svr.stop();
