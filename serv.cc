@@ -66,6 +66,7 @@ struct LockedSqw
 
 enum class Capability {IsUser=1, Admin=2, EmailAuthenticated=3};
 
+// teases the session cookie from the headers
 string getSessionID(const httplib::Request &req) 
 {
   auto cookies = getCookies(req.get_header_value("Cookie"));
@@ -75,7 +76,6 @@ string getSessionID(const httplib::Request &req)
   }
   return siter->second;
 }
-
 
 struct Users
 {
@@ -249,7 +249,7 @@ bool shouldShow(Users& u, const std::string& user, unordered_map<string, MiniSQL
   if(get<string>(row["user"]) == user || u.userHasCap(user, Capability::Admin))
     return true;
 
-  if(!get<int64_t>(row["public"]))
+  if(!get<int64_t>(row["public"])) // not public, no show
     return false;
 
   time_t pubUntil = get<int64_t>(row["publicUntilTstamp"]);
@@ -357,9 +357,11 @@ int trifectaMain(int argc, const char**argv)
       cout<<"  NONE ";
     if(caps.count(Capability::IsUser))
       cout<<" IsUser";
+    if(caps.count(Capability::EmailAuthenticated))
+      cout<<" EmailAuthenticated ";
     if(caps.count(Capability::Admin))
       cout<<" Admin ";
-    cout<<" pattern "<<pattern<<endl;
+    cout<<" "<<pattern<<endl;
         
     auto func = [f, &sessions, caps, &u](const httplib::Request &req, httplib::Response &res) {
       string user;
@@ -381,10 +383,7 @@ int trifectaMain(int argc, const char**argv)
         res.set_content(output.dump(), "application/json");
       }
     };
-    if(getOrPost)
-      svr.Get(pattern, func);
-    else
-      svr.Post(pattern, func);
+    getOrPost ? svr.Get(pattern, func) : svr.Post(pattern, func);
   };
   auto wrapGet = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) { wrapGetOrPost(true, caps, pattern, f); };
   auto wrapPost = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) {
@@ -392,7 +391,7 @@ int trifectaMain(int argc, const char**argv)
   };
  
   wrapGet({}, "/status", [&u](const auto &req, httplib::Response &res, const std::string& user) {
-    nlohmann::json j;
+    nlohmann::json j{{"ok", 1}};
     j["login"] = !user.empty();
     j["admin"] = false;
     if(!user.empty()) {
@@ -433,8 +432,8 @@ int trifectaMain(int argc, const char**argv)
 
     auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
     if(c.size()==1) {
-      // delete this temporary session
       string user= get<string>(c[0]["user"]);
+      // delete this temporary session
       lsqw.query("delete from sessions where id=? and user=?", {sessionid, user});
       // emailauthenticated session so it can reset your password, but no expiration
       string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req), true);
@@ -472,10 +471,8 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  
   wrapGet({}, "/getPost/:postid", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
     string postid = req.path_params.at("postid");
-
     nlohmann::json j;
 
     auto post = lsqw.query("select user, public, title, publicUntilTstamp from posts where id=?", {postid});
@@ -534,13 +531,13 @@ int trifectaMain(int argc, const char**argv)
       auto access=lsqw.query("select id from posts where id=? and user=?", {postId, user});
       if(access.empty())
         throw std::runtime_error("Attempt to upload to post that's not ours!");
-      }
+    }
     
     nlohmann::json j; // if you upload multiple files in one go, this does the wrong thing
     for(auto&& [name, f] : req.files) {
       fmt::print("name {}, filename {}, content_type {}, size {}, postid {}\n", f.name, f.filename, f.content_type, f.content.size(), postId);
       if(f.content_type.substr(0,6) != "image/" || f.filename.empty()) {
-        cout<<"Skipping non-image or non-file (type " << f.content_type<<", filename '"<<f.filename<<"'"<<endl;
+        cout<<"Skipping non-image or non-file (type " << f.content_type<<", filename '"<<f.filename<<"')"<<endl;
         continue;
       }
       vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
@@ -563,20 +560,17 @@ int trifectaMain(int argc, const char**argv)
         j["publicUntil"] = get<int64_t>(row[0]["publicUntilTstamp"]);;
       }
       lsqw.addValue({{"action", "upload"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", tstamp}}, "log");
-      
     }
     return j;
   });
   
   wrapPost({Capability::IsUser}, "/delete-image/(.+)", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
     string imgid = req.matches[1];
-    
-    cout<<"Attemping to delete image "<<imgid<<" for user " << user << endl;
     checkImageOwnership(lsqw, u, user, imgid);
     
     lsqw.query("delete from images where id=?", {imgid});
     lsqw.addValue({{"action", "delete-image"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
   
   wrapPost({Capability::IsUser}, "/delete-post/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
@@ -593,11 +587,9 @@ int trifectaMain(int argc, const char**argv)
   });
   
   wrapPost({Capability::IsUser}, "/set-post-title/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    
     string postid = req.matches[1];
-    
     string title = req.get_file_value("title").content;
-    cout<<"Attemping to set title for post "<< postid<<" for user " << user <<" to " << title << endl;
+    
     auto rows = lsqw.query("select user from posts where id=?", {postid});
     if(rows.size() != 1)
       throw std::runtime_error("Attempting to change title for post that does not exist");
@@ -607,7 +599,7 @@ int trifectaMain(int argc, const char**argv)
     
     lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
     lsqw.addValue({{"action", "set-post-title"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
   
   wrapPost({Capability::IsUser}, "/set-image-caption/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
@@ -682,7 +674,6 @@ int trifectaMain(int argc, const char**argv)
     lsqw.addValue({{"action", "kill-my-session"}, {"user", user}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
-
   
   wrapPost({Capability::IsUser}, "/logout", [&lsqw, &sessions](const auto &req, auto &res, const string& user)  {
     lsqw.addValue({{"action", "logout"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
@@ -716,12 +707,12 @@ int trifectaMain(int argc, const char**argv)
     nlohmann::json j;
       
     if(user.empty()) {
-      j["ok"]=false;
+      j["ok"]=0;
       j["message"] = "User field empty";
     }
     else {
       u.createUser(user, password1, email, false);
-      j["ok"] = true;
+      j["ok"] = 1;
     }
     return j;
   });
