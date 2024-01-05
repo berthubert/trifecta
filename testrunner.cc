@@ -537,6 +537,34 @@ TEST_CASE("change my password") {
   CHECK(j["login"]==true);
 }
 
+TEST_CASE("email address change test") {
+  httplib::Client cli("127.0.0.1", 9999);
+
+  auto adminSession = getTFS().doLogin();
+  auto j0hnSession = createAndLoginUser(cli, adminSession, "j0hn", "j0hnpw");
+  
+  auto res = cli.Get("/status", j0hnSession);
+  REQUIRE(res != 0);
+
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["email"]=="");
+
+  httplib::MultipartFormDataItems items = {
+    { "email", "j0hn-243243@gmail.com", "email"}
+  };
+
+  res = cli.Post("/change-my-email", j0hnSession, items);
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==1);
+
+  res = cli.Get("/status", j0hnSession);
+  REQUIRE(res != 0);
+
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["email"]=="j0hn-243243@gmail.com");
+}
+
 TEST_CASE("email test" * doctest::skip(true)) {
   sendAsciiEmailAsync("10.0.0.2:25", "bert@hubertnet.nl", "bert@hubertnet.nl", "Le Sujet",
                  R"(Hallo,
