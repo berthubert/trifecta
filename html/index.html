@@ -261,14 +261,16 @@
             <p x-show="!user.hasPw">Your password is currently not set!</p>
             <form @submit.prevent="doChangeMyPassword($el, $data)">
               <table>
-                <tr x-show="user.hasPw">
-                  <td>
-                    <label for="password0">Current Password:</label>
-                  </td>
-                  <td>
-                    <input type="password" id="password0" name="password0" required>
-                  </td>
-                </tr>
+                <template x-if="user.hasPw">
+                  <tr>
+                    <td>
+                      <label for="password0">Current Password:</label>
+                    </td>
+                    <td>
+                      <input type="password" id="password0" name="password0" required>
+                    </td>
+                  </tr>
+                </template>
                 <tr>
                   <td>
                     <label for="password1">New password:</label>
