@@ -2,7 +2,6 @@
 #include <exception>
 #include <iostream>
 #include <mutex>
-
 #include <stdexcept>
 #include <string>
 
@@ -343,10 +342,7 @@ int trifectaMain(int argc, const char**argv)
       reason = "An unknown error occurred";
     }
     cout<<req.path<<": exception for "<<reason<<endl;
-    nlohmann::json j;
-    j["ok"]=0;
-    j["message"]=reason;
-    j["reason"]=reason;
+    nlohmann::json j{{"ok", 0}, {"message", reason}, {"reason", reason}};
     res.set_content(j.dump(), "application/json");
                   
     res.status = 500;
@@ -411,8 +407,7 @@ int trifectaMain(int argc, const char**argv)
   wrapPost({}, "/login", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
     string user = req.get_file_value("user").content;
     string password = req.get_file_value("password").content;
-    nlohmann::json j;
-    j["ok"]=0;
+    nlohmann::json j{{"ok", 0}};
     if(u.checkPassword(user, password)) {
       string ip=getIP(req), agent= req.get_header_value("User-Agent");
       string sessionid = sessions.createSessionForUser(user, agent, ip);
@@ -434,8 +429,7 @@ int trifectaMain(int argc, const char**argv)
 
   wrapPost({}, "/join-session/(.*)", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
     string sessionid = req.matches[1];
-    nlohmann::json j;
-    j["ok"]=0;
+    nlohmann::json j{{"ok", 0}};
 
     auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
     if(c.size()==1) {
@@ -587,8 +581,7 @@ int trifectaMain(int argc, const char**argv)
   
   wrapPost({Capability::IsUser}, "/delete-post/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     string postid = req.matches[1];
-    nlohmann::json j;
-    j["ok"]=0;
+    nlohmann::json j{{"ok", 0}};
     if(canTouchPost(lsqw, u, user, postid)) {
       lsqw.query("delete from posts where id=?", {postid});
       j["ok"]=1;
@@ -624,14 +617,12 @@ int trifectaMain(int argc, const char**argv)
     checkImageOwnership(lsqw, u, user, imgid);
     lsqw.query("update images set caption=? where id=?", {caption, imgid});
     lsqw.addValue({{"action", "set-image-caption"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
 
   wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     u.changePassword(user, "");
-    nlohmann::json j; 
-    j["ok"]=1;
-    return j;
+    return nlohmann::json{{"ok", 1}};
   });
   
   wrapPost({Capability::IsUser}, "/change-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
@@ -644,19 +635,13 @@ int trifectaMain(int argc, const char**argv)
     }
     cout<<"Attemping to set password for user "<<user<<endl;
     u.changePassword(user, pwfield.content);
-    nlohmann::json j;
-    j["ok"]=1;
-    j["message"]="Changed password";
-    return j;
+    return nlohmann::json{{"ok", 1}, {"message", "Changed password"}};
   });
 
   wrapPost({Capability::IsUser}, "/change-my-email/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
     auto email = req.get_file_value("email").content;
     auto ret= lsqw.queryJRet("update users set email=? where user=?", {email, user});
-    nlohmann::json j;
-    j["ok"]=1;
-    j["message"]="Changed email";
-    return j;
+    return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
   });
 
   wrapPost({Capability::IsUser}, "/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
@@ -680,7 +665,7 @@ int trifectaMain(int argc, const char**argv)
     else
       lsqw.query("update posts set public =? where id=?", {pub, postid});
     lsqw.addValue({{"action", "change-post-public"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
     
   wrapGet({Capability::IsUser}, "/my-images", [&lsqw](const auto &req, auto &res, const string& user) {
@@ -695,7 +680,7 @@ int trifectaMain(int argc, const char**argv)
     string session = req.matches[1];
     lsqw.query("delete from sessions where id=? and user=?", {session, user});
     lsqw.addValue({{"action", "kill-my-session"}, {"user", user}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
 
   
@@ -709,8 +694,7 @@ int trifectaMain(int argc, const char**argv)
     }
     res.set_header("Set-Cookie",
                    "session="+getSessionID(req)+"; SameSite=Strict; Path=/; Max-Age=0");
-    
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
 
   wrapGet({Capability::Admin}, "/all-images", [&lsqw](const auto &req, auto &res, const string& user) {
@@ -750,7 +734,7 @@ int trifectaMain(int argc, const char**argv)
       lsqw.query("delete from sessions where user=?", {user});
     }
     lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
     
   wrapPost({Capability::Admin}, "/change-password/?", [&lsqw, &u](const auto& req, auto& res, const string&) {
@@ -761,14 +745,14 @@ int trifectaMain(int argc, const char**argv)
     string user = req.get_file_value("user").content;
     cout<<"Attemping to set password for user "<<user<<endl;
     u.changePassword(user, pwfield.content);
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
     
   wrapPost({Capability::Admin}, "/kill-session/([^/]+)", [&lsqw](const auto& req, auto& res, const string& ign) {
     string session = req.matches[1];
     lsqw.query("delete from sessions where id=?", {session});
     lsqw.addValue({{"action", "kill-session"}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
     
   wrapPost({Capability::Admin}, "/del-user/([^/]+)", [&lsqw, &u](const auto& req, auto& res, const string&) {
@@ -777,13 +761,13 @@ int trifectaMain(int argc, const char**argv)
       
     // XX logging is weird, 'user' should likely be called 'subject' here
     lsqw.addValue({{"action", "del-user"}, {"ip", getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
     
   wrapPost({Capability::Admin}, "/stop" , [&lsqw, &svr](const auto& req, auto& res, const string& wuser) {
     lsqw.addValue({{"action", "stop"}, {"ip", getIP(req)}, {"user", wuser}, {"tstamp", time(0)}}, "log");
     svr.stop();
-    return nlohmann::json();
+    return nlohmann::json{{"ok", 1}};
   });
   
   string laddr = args.get<string>("local-address");
