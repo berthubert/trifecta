@@ -70,12 +70,12 @@ A post can contain multiple images. Each image can have a caption, and each post
 Posts can be public or not, or have a timelimit on their public visibility.
 As owner of a post you can extend or change this limit.
 
+Users can sign in using an temporary email link, and also reset their
+password this way.
 # Known problems
 
  * UI is still somewhat clunky
- * You can't change your password yet
- * Login emails not yet implemented
- * Security is probably not yet where it should be
+ * Security is probably not quite yet where it should be
  * The code is still a mess and not yet "education clean"
 
 More low hanging fruit can be found in the [GitHub issues
@@ -142,6 +142,9 @@ location /trifecta/ {
 }
 ```
 
+Do know that the default configuration of Trifecta will listen on 127.0.0.1
+only, use `-l 0.0.0.0` to change this.
+
 # Distributing binaries, docker etc
 To make a more portable binary, try:
 
@@ -176,7 +179,7 @@ This gets you a 2.3 megabyte compressed container you can distribute.
 To run the image:
 
 ```bash
-podman run -p 1234:1234 -v /some/place/local-db/:/local-db berthubert/trifecta --rnd-admin-password
+podman run -p 1234:1234 -v /some/place/local-db/:/local-db berthubert/trifecta --rnd-admin-password -l 0.0.0.0
 ```
 This syntax means:
 
@@ -205,4 +208,3 @@ cottow's 6paster: https://github.com/cottow/6paster
 
 Project with similar aims, a webmail solution built on Go and a functional language called Elm:
 https://github.com/inbucket/inbucket
-
