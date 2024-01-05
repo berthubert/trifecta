@@ -18,9 +18,6 @@ Todo:
     plan: never do 500, always set an 'ok' field 
 */
 
-
-
-
 void checkImageOwnership(LockedSqw& lsqw, Users& u, const std::string& user, const std::string& imgid)
 {
   if(!u.userHasCap(user, Capability::Admin)) {
@@ -120,6 +117,7 @@ int trifectaMain(int argc, const char**argv)
       fmt::print("Creating user admin with password: {}\n", pw);
       u.createUser("admin", pw, "", true);
     }
+    exit(EXIT_SUCCESS);
   }
 
   try {
@@ -159,6 +157,7 @@ int trifectaMain(int argc, const char**argv)
 
   Sessions sessions(lsqw);
   auto wrapGetOrPost = [&svr, &sessions, &u](bool getOrPost, const set<Capability>& caps, const std::string& pattern, auto f) {
+    /*
     cout<< (getOrPost ? "GET " : "POST") <<" caps";
     if(caps.empty())
       cout<<"  NONE ";
@@ -169,14 +168,14 @@ int trifectaMain(int argc, const char**argv)
     if(caps.count(Capability::Admin))
       cout<<" Admin ";
     cout<<" "<<pattern<<endl;
-        
+    */  
     auto func = [f, &sessions, caps, &u](const httplib::Request &req, httplib::Response &res) {
       string user;
       try {
         user = sessions.getUser(req);
       }
       catch(exception& e) {
-        cout<<"Error getting user from session: "<<e.what()<<endl;
+        // cout<<"Error getting user from session: "<<e.what()<<endl;
       }
       for(const auto& c: caps) {
         if(!u.userHasCap(user, c, &req))
@@ -351,7 +350,7 @@ int trifectaMain(int argc, const char**argv)
       if(!untilStr.empty())
         until = stoi(untilStr);
     }
-    cout<<"postid: "<< postid << ", new state: "<<pub<<", until: "<<until <<", matches "<< req.matches.size()<<endl;
+
     if(!pub && until)
       throw std::runtime_error("Attempting to set nonsensical combination for public");
     
