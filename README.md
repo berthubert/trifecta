@@ -179,8 +179,12 @@ This gets you a 2.3 megabyte compressed container you can distribute.
 To run the image:
 
 ```bash
-podman run -p 1234:1234 -v /some/place/local-db/:/local-db berthubert/trifecta --rnd-admin-password -l 0.0.0.0
+podman run --init -p 1234:1234             \
+  -v /some/place/local-db/:/local-db       \
+  berthubert/trifecta --rnd-admin-password \
+  -l 0.0.0.0
 ```
+
 This syntax means:
 
  * The binary in the container exposes TCP port 1234, expose it to the world as
@@ -190,6 +194,8 @@ This syntax means:
    `/local-db` in the container
  * --rnd-admin-password creates an admin user with a random password (which
    it prints for you)
+ * For security reasons, trifecta binds to 127.0.0.1 by default, but
+   podman/docker can't see that
 
 When running with Docker, pass `--init` to `docker run` so that signals are handled correctly.
 
