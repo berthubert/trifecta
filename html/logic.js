@@ -135,10 +135,11 @@ function doLogin(el, f) {
         });
 }
 
-function doAskForSigninEmail(el, f) {
-    const data = new FormData(el);
-    
-    fetch("get-signin-email", { method: "POST", body: data })
+function doAskForSigninEmail(user, f) {
+    const formData = new FormData();
+    formData.append('user', user);
+
+    fetch("get-signin-email", { method: "POST", body: formData })
         .then(response => response.json()).then(data => {
             if (data.ok) {
                 ShowMessage(f, data.message);

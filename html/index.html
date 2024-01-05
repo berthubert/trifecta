@@ -37,7 +37,7 @@
 
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required>
-            <button @click.prevent="doAskForSigninEmail($el.parentNode, $data)">Get sign-in email</button>
+            <button @click.prevent="doAskForSigninEmail($el.parentNode['user'].value, $data)">Get sign-in email</button>
             <button type="submit">Login</button>
           </form>
         </div>
@@ -129,10 +129,10 @@
               <table>
                 <tr>
                   <td>
-                    <label for="user">Username:</label>
+                    <label for="username">Username:</label>
                   </td>
                   <td>
-                    <input type="text" id="user" name="user" required>
+                    <input type="text" id="username" name="user" required>
                   </td>
                 </tr>
                 <tr>
@@ -259,8 +259,18 @@
           <div id="changemypassword">
             <h2>Change my password</h2>
             <p x-show="!user.hasPw">Your password is currently not set!</p>
+            <p x-show="user.hasPw">You can also get an email link to reset your password: <button @click.prevent="doAskForSigninEmail(user.name, $data)">Get sign-in email</button></p>
             <form @submit.prevent="doChangeMyPassword($el, $data)">
               <table>
+                <tr>
+                    <td>
+                      <label for="user">User:</label>
+                    </td>
+                    <td>
+                      <input type="text" readonly id="username" name="user" x-model="user.name">
+                    </td>
+                  </tr>
+
                 <template x-if="user.hasPw">
                   <tr>
                     <td>
