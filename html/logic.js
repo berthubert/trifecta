@@ -47,6 +47,7 @@ async function getLoginStatus(f) {
             f.user.email = data.email;
             f.user.hasPw = data.hasPw;
         }
+        f.version = data.version;
     }
 }
 

@@ -16,6 +16,7 @@
                  post: {},
                  user: {}, 
                  myimages: [],
+                 version: 'unknown',
                  showSection: 'home',
 }" x-init="doPageLoad($data);">
     <header>
@@ -393,9 +394,9 @@
       </template>
     </div> <!-- content div -->
     <footer>
-      <span>Learn more about Trifecta on <a href="https://github.com/berthubert/trifecta">github</a></span>
+      Learn more about Trifecta on <a href="https://github.com/berthubert/trifecta">github</a> &mdash; version <span x-text="version"></span>
     </footer>
-  </div> <!-- id=container -- Alphine div -->
+  </div> <!-- id=container -- Alpine div -->
 </body>
 
 </html>
