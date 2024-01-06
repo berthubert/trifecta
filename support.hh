@@ -39,6 +39,12 @@ struct LockedSqw
     std::lock_guard<std::mutex> l(sqwlock);
     sqw.addValue(values, table);
   }
+  void addValue(const std::vector<std::pair<const char*, SQLiteWriter::var_t>>& values, const std::string& table="data")
+  {
+    std::lock_guard<std::mutex> l(sqwlock);
+    sqw.addValue(values, table);
+  }
+
 };
 
 int trifectaMain(int argc, const char* argv[]);
@@ -91,20 +97,28 @@ struct SimpleWebSystem
   Sessions d_sessions;
   httplib::Server d_svr;
 
+  struct ComboReq
+  {
+    LockedSqw& lsqw;
+    const httplib::Request &req;
+    httplib::Response &res;
+    Users& users;
+    Sessions& sessions;
+    std::string user;
+
+    void log(const std::initializer_list<std::pair<const char*, SQLiteWriter::var_t>>& fields)
+    {
+      // add agent?
+      std::vector<std::pair<const char*, SQLiteWriter::var_t>> values{{"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}};
+      for(const auto& f : fields)
+        values.push_back(f);
+      lsqw.addValue(values, "log");
+    }
+  };
+  
+
   template<typename Func>
   void wrapGetOrPost(bool getOrPost, const std::set<Capability>& caps, const std::string& pattern, Func f) {
-    /*
-    cout<< (getOrPost ? "GET " : "POST") <<" caps";
-    if(caps.empty())
-      cout<<"  NONE ";
-    if(caps.count(Capability::IsUser))
-      cout<<" IsUser";
-    if(caps.count(Capability::EmailAuthenticated))
-      cout<<" EmailAuthenticated ";
-    if(caps.count(Capability::Admin))
-      cout<<" Admin ";
-    cout<<" "<<pattern<<endl;
-    */  
     auto func = [f, this, caps](const httplib::Request &req, httplib::Response &res) {
       std::string user;
       try {
@@ -117,7 +131,8 @@ struct SimpleWebSystem
         if(!d_users.userHasCap(user, c, &req))
           throw std::runtime_error(fmt::format("Lacked a capability ({})", (int)c));
       }
-      auto output = f(req, res, user);
+      ComboReq cr{d_lsqw, req, res, d_users, d_sessions, user};
+      auto output = f(cr);
       if constexpr (std::is_same_v<decltype(output), std::pair<std::string, std::string>>) {
         res.set_content(output.first, output.second);
       }
