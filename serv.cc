@@ -118,7 +118,7 @@ int trifectaMain(int argc, const char**argv)
       sws.d_users.createUser("admin", pw, "", true);
     }
     if(args.get<string>("rnd-admin-password") != "continue")
-      exit(EXIT_SUCCESS);
+      return EXIT_SUCCESS;
   }
 
   try {
