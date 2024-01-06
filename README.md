@@ -6,7 +6,7 @@ and web technologies. Intended to both be useful and make some points.
 
  * Show how you can build things without [hundreds of dependencies](https://medium.com/graph-commons/analyzing-the-npm-dependency-network-e2cf318c1d0d)
  * Show you can do so self-contained without tons of infrastructure
-   * [2.3MB Docker](https://berthub.eu/trifecta/trifecta.docker.bz2)/Podman image, needs nothing else
+   * Compressed [1.6MB Docker](https://berthub.eu/tmp/trifecta.docker.xz)/Podman image, needs nothing else
  * Provide an easy on-ramp for "C++ people" to using modern web technology
    * Using a non-bloated minimal framework (alpine.js)
  * Showcase modern C++ and build tools (Meson)
