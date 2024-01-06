@@ -66,7 +66,7 @@ int trifectaMain(int argc, const char**argv)
 
   args.add_argument("db-file").help("file to read database from").default_value("trifecta.sqlite");
   args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
-  args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").flag();
+  args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").default_value(string(""));
   args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
   args.add_argument("--local-address", "-l").help("address to listen on").default_value("127.0.0.1");
   args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value("127.0.0.1:25");
@@ -97,7 +97,7 @@ int trifectaMain(int argc, const char**argv)
   LockedSqw lsqw{sqw, sqwlock};
   Users u(lsqw);
 
-  if(args["--rnd-admin-password"] == true) {
+  if(args.is_used("--rnd-admin-password")) {
     bool changed=false;
     string pw = makeShortID(getRandom63());
 
@@ -117,7 +117,8 @@ int trifectaMain(int argc, const char**argv)
       fmt::print("Creating user admin with password: {}\n", pw);
       u.createUser("admin", pw, "", true);
     }
-    exit(EXIT_SUCCESS);
+    if(args.get<string>("rnd-admin-password") != "continue")
+      exit(EXIT_SUCCESS);
   }
 
   try {

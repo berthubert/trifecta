@@ -1,7 +1,6 @@
 #include <iostream>
 #include <random>
 #include <regex>
-#include "cryptopp/base64.h"
 #include "bcrypt.h"
 #include "support.hh"
 #include <sclasses.hh>
@@ -51,16 +50,64 @@ int64_t getRandom63()
   return dist(generator);
 }
 
+namespace {
+  //gratefully lifted from https://github.com/tobiaslocker/base64
+  constexpr std::string_view base64url_chars{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                               "abcdefghijklmnopqrstuvwxyz"
+                                               "0123456789-_"};
+
+
+  template<class OutputBuffer, class InputIterator>
+  inline OutputBuffer encode_into(InputIterator begin, InputIterator end) {
+    static_assert(std::is_same_v<std::decay_t<decltype(*begin)>, char>
+                  || std::is_same_v<std::decay_t<decltype(*begin)>, unsigned char>
+                  || std::is_same_v<std::decay_t<decltype(*begin)>, std::byte>);
+    
+    size_t counter = 0;
+    uint32_t bit_stream = 0;
+    size_t offset = 0;
+    OutputBuffer encoded;
+    encoded.reserve(static_cast<size_t>(1.5 * static_cast<double>(std::distance(begin, end))));
+    while(begin != end) {
+      auto const num_val = static_cast<unsigned char>(*begin);
+      offset = 16 - counter % 3 * 8;
+      bit_stream += num_val << offset;
+      if (offset == 16) {
+        encoded.push_back(base64url_chars[bit_stream >> 18 & 0x3f]);
+      }
+      if (offset == 8) {
+        encoded.push_back(base64url_chars[bit_stream >> 12 & 0x3f]);
+      }
+      if (offset == 0 && counter != 3) {
+        encoded.push_back(base64url_chars[bit_stream >> 6 & 0x3f]);
+        encoded.push_back(base64url_chars[bit_stream & 0x3f]);
+        bit_stream = 0;
+      }
+      ++counter;
+      ++begin;
+    }
+    if (offset == 16) {
+      encoded.push_back(base64url_chars[bit_stream >> 12 & 0x3f]);
+      encoded.push_back('=');
+      encoded.push_back('=');
+    }
+    if (offset == 8) {
+      encoded.push_back(base64url_chars[bit_stream >> 6 & 0x3f]);
+      encoded.push_back('=');
+    }
+    return encoded;
+  }
+  
+  std::string to_base64url(std::string_view data) {
+    return encode_into<std::string>(std::begin(data), std::end(data));
+  }
+}
+
 string makeShortID(int64_t id)
 {
-  string encoded;
-  using namespace CryptoPP;
-  StringSource ss((uint8_t*)& id, sizeof(id), true,
-                  new Base64URLEncoder(
-                                    new StringSink(encoded)
-                                    ) // Base64Encoder
-                  ); // StringSource
-  return encoded;
+  string ret = to_base64url(std::string((char*)&id, sizeof(id)));
+  ret.resize(ret.size()-1); // this base64url implementation pads, somehow
+  return ret;
 }
 
 // teases the session cookie from the headers

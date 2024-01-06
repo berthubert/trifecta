@@ -60,7 +60,6 @@ good existing software is great:
  * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent  HTTP library
  * [doctest](https://github.com/doctest/doctest), very nice and fast unit  tests
  * [argparse](https://github.com/p-ranav/argparse), great argument parser
- * [Crypto++](https://www.cryptopp.com/) - only for a baseurl64 encoder right now
 
 # Description
 You can paste or drag images to Trifecta. If you upload an image, a post will be created for it automatically. 
@@ -82,11 +81,11 @@ More low hanging fruit can be found in the [GitHub issues
 list](https://github.com/berthubert/trifecta/issues).
 
 # Building
-Requires libsqlite3-dev nlohmann-json and crypto++. On Debian derived
+Requires libsqlite3-dev nlohmann-json. On Debian derived
 systems the following works:
 
 ```
-apt install libsqlite3-dev nlohmann-json3-dev python3-pip libcrypto++-dev pkg-config
+apt install libsqlite3-dev nlohmann-json3-dev python3-pip pkg-config
 ```
 
 In addition, the project requires a recent version of meson, which you can

@@ -46,7 +46,7 @@ namespace {
       std::thread t1([]() {
         unlink("testrunner.sqlite");
         const char* argv[] = {"./trifecta", "testrunner.sqlite", "-p", "9999",
-          "--rnd-admin-password",
+          "--rnd-admin-password=continue",
           "--local-address=127.0.0.1"};
         trifectaMain(6, argv);
       });
@@ -512,7 +512,6 @@ TEST_CASE("web admin tests") {
 }
 
 TEST_CASE("change my password") {
-  //  auto createAndLoginUser(httplib::Client& cli, const httplib::Headers& adminSession, const std::string& user, const std::string& password)
   httplib::Client cli("127.0.0.1", 9999);
 
   auto adminSession = getTFS().doLogin();
