@@ -236,7 +236,6 @@ void Users::createUser(const std::string& user, const std::string& password, con
 {
   string pwhash = bcrypt::generateHash(password);
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
-  d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
 void Users::delUser(const std::string& user)
@@ -254,7 +253,6 @@ void Users::changePassword(const std::string& user, const std::string& password)
     throw std::runtime_error("Tried to change password for user '"+user+"', but does not exist");
   }
   d_lsqw.query("update users set pwhash=? where user=?", {pwhash, user});
-  d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", "xx missing xx"}, {"tstamp", time(0)}}, "log");
 }
 
 
@@ -300,8 +298,6 @@ void Sessions::dropSession(const std::string& sessionid, std::optional<string> u
   else
     d_lsqw.query("delete from sessions where id=? and user=?", {sessionid, *user});
 }
-
-
 
 void SimpleWebSystem::standardFunctions()
 {
@@ -352,6 +348,8 @@ void SimpleWebSystem::standardFunctions()
     }
     cout<<"Attemping to set password for user "<<user<<endl;
     d_users.changePassword(user, pwfield.content);
+    d_lsqw.addValue({{"action", "change-my-password"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+
     return nlohmann::json{{"ok", 1}, {"message", "Changed password"}};
   });
   
@@ -428,6 +426,8 @@ void SimpleWebSystem::standardFunctions()
     }
     else {
       d_users.createUser(user, password1, email, false);
+      d_lsqw.addValue({{"action", "create-user"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+        
       j["ok"] = 1;
     }
     return j;
@@ -452,6 +452,7 @@ void SimpleWebSystem::standardFunctions()
     string user = req.get_file_value("user").content;
     cout<<"Attemping to set password for user "<<user<<endl;
     d_users.changePassword(user, pwfield.content);
+    d_lsqw.addValue({{"action", "change-password"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
 
@@ -459,6 +460,7 @@ void SimpleWebSystem::standardFunctions()
     auto email = req.get_file_value("email").content;
     auto user = req.get_file_value("user").content;
     d_users.setEmail(user, email);
+    d_lsqw.addValue({{"action", "change-email"}, {"user", user}, {"to", email}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
   });
 
@@ -481,6 +483,7 @@ void SimpleWebSystem::standardFunctions()
 
   wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [this](const auto& req, auto& res, const string& user) {
     d_users.changePassword(user, "");
+    d_lsqw.addValue({{"action", "wipe-my-password"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
   
@@ -489,8 +492,6 @@ void SimpleWebSystem::standardFunctions()
     d_svr.stop();
     return nlohmann::json{{"ok", 1}};
   });
-  
-
 }
 
 SimpleWebSystem::SimpleWebSystem(LockedSqw& lsqw) : d_lsqw(lsqw), d_users(lsqw), d_sessions(lsqw)
