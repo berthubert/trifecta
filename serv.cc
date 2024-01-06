@@ -95,8 +95,8 @@ int trifectaMain(int argc, const char**argv)
                    });
   std::mutex sqwlock;
   LockedSqw lsqw{sqw, sqwlock};
-  Users u(lsqw);
-
+  SimpleWebSystem sws(lsqw);
+  sws.standardFunctions();
   if(args.is_used("--rnd-admin-password")) {
     bool changed=false;
     string pw = makeShortID(getRandom63());
@@ -104,9 +104,9 @@ int trifectaMain(int argc, const char**argv)
     testrunnerPw() = pw;     // for the testrunner
 
     try {
-      if(u.userHasCap("admin", Capability::Admin)) {
+      if(sws.d_users.userHasCap("admin", Capability::Admin)) {
         cout<<"Admin user existed already, updating password to: "<< pw << endl;
-        u.changePassword("admin", pw);
+        sws.d_users.changePassword("admin", pw);
         changed=true;
       }
     }
@@ -115,7 +115,7 @@ int trifectaMain(int argc, const char**argv)
 
     if(!changed) {
       fmt::print("Creating user admin with password: {}\n", pw);
-      u.createUser("admin", pw, "", true);
+      sws.d_users.createUser("admin", pw, "", true);
     }
     if(args.get<string>("rnd-admin-password") != "continue")
       exit(EXIT_SUCCESS);
@@ -136,78 +136,18 @@ int trifectaMain(int argc, const char**argv)
     fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
   }
 
-  httplib::Server svr;
-
-  svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
-    string reason;
-    try {
-      std::rethrow_exception(ep);
-    } catch (std::exception &e) {
-      reason = fmt::format("An error occurred: {}", e.what());
-    } catch (...) {
-      reason = "An unknown error occurred";
-    }
-    cout<<req.path<<": exception for "<<reason<<endl;
-    nlohmann::json j{{"ok", 0}, {"message", reason}, {"reason", reason}};
-    res.set_content(j.dump(), "application/json");
-                  
-    res.status = 500;
-  });
-
-  svr.set_mount_point("/", args.get<string>("html-dir"));
-
-  Sessions sessions(lsqw);
-  auto wrapGetOrPost = [&svr, &sessions, &u](bool getOrPost, const set<Capability>& caps, const std::string& pattern, auto f) {
-    /*
-    cout<< (getOrPost ? "GET " : "POST") <<" caps";
-    if(caps.empty())
-      cout<<"  NONE ";
-    if(caps.count(Capability::IsUser))
-      cout<<" IsUser";
-    if(caps.count(Capability::EmailAuthenticated))
-      cout<<" EmailAuthenticated ";
-    if(caps.count(Capability::Admin))
-      cout<<" Admin ";
-    cout<<" "<<pattern<<endl;
-    */  
-    auto func = [f, &sessions, caps, &u](const httplib::Request &req, httplib::Response &res) {
-      string user;
-      try {
-        user = sessions.getUser(req);
-      }
-      catch(exception& e) {
-        // cout<<"Error getting user from session: "<<e.what()<<endl;
-      }
-      for(const auto& c: caps) {
-        if(!u.userHasCap(user, c, &req))
-          throw std::runtime_error(fmt::format("Lacked a capability ({})", (int)c));
-      }
-      auto output = f(req, res, user);
-      if constexpr (std::is_same_v<decltype(output), std::pair<string, string>>) {
-        res.set_content(output.first, output.second);
-      }
-      else {
-        res.set_content(output.dump(), "application/json");
-      }
-    };
-    getOrPost ? svr.Get(pattern, func) : svr.Post(pattern, func);
-  };
-
-  auto wrapGet = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) { wrapGetOrPost(true, caps, pattern, f); };
-  auto wrapPost = [&wrapGetOrPost](const set<Capability>& caps, const std::string& pattern, auto f) {
-    wrapGetOrPost(false, caps, pattern, f);
-  };
+  sws.d_svr.set_mount_point("/", args.get<string>("html-dir"));
    
-  wrapGet({}, "/getPost/:postid", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
+  sws.wrapGet({}, "/getPost/:postid", [&sws](const auto& req, auto& res, const std::string& user) {
     string postid = req.path_params.at("postid");
     nlohmann::json j;
 
-    auto post = lsqw.query("select user, public, title, publicUntilTstamp from posts where id=?", {postid});
+    auto post = sws.d_lsqw.query("select user, public, title, publicUntilTstamp from posts where id=?", {postid});
     if(post.size() != 1) {
       j["images"] = nlohmann::json::array();
     }
-    else if(shouldShow(u, user, post[0])) {
-      auto images = lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
+    else if(shouldShow(sws.d_users, user, post[0])) {
+      auto images = sws.d_lsqw.query("select images.id as id, caption from images,posts where postId = ? and images.postId = posts.id", {postid});
 
       j["images"]=packResultsJson(images);
       j["title"]=get<string>(post[0]["title"]);
@@ -215,7 +155,7 @@ int trifectaMain(int argc, const char**argv)
       time_t until = get<int64_t>(post[0]["publicUntilTstamp"]);
       j["publicUntil"]=until;
       if(!user.empty())
-        j["can_touch_post"] = canTouchPost(lsqw, u, user, postid) ? 1 : 0;
+        j["can_touch_post"] = canTouchPost(sws.d_lsqw, sws.d_users, user, postid) ? 1 : 0;
       else
         j["can_touch_post"] = 0;
       j["publicUntilExpired"] = until && (time(0) < until);
@@ -223,19 +163,19 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
 
-  wrapGet({}, "/i/:imgid", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+  sws.wrapGet({}, "/i/:imgid", [&sws](const auto& req, auto& res, const string& user) {
     string imgid = req.path_params.at("imgid");
     res.status = 404;
 
-    auto results = lsqw.query("select image,public,content_type, posts.publicUntilTstamp, posts.user from images,posts where images.id=? and posts.id = images.postId ", {imgid});
+    auto results = sws.d_lsqw.query("select image,public,content_type, posts.publicUntilTstamp, posts.user from images,posts where images.id=? and posts.id = images.postId ", {imgid});
 
     if(results.size() != 1) {
-      lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}, {"meta", "no such image"}}, "log");
+      sws.d_lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}, {"meta", "no such image"}}, "log");
       return pair<string,string>("No such file", "text/html");
     }
 
-    if(!shouldShow(u, user, results[0])) {
-      lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+    if(!shouldShow(sws.d_users, user, results[0])) {
+      sws.d_lsqw.addValue({{"action", "view-failed"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
       return pair<string,string>("No such file", "text/html");
     }
 
@@ -243,19 +183,19 @@ int trifectaMain(int argc, const char**argv)
     string s((char*)&img[0], img.size());
     res.status = 200;
 
-    lsqw.addValue({{"action", "view"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+    sws.d_lsqw.addValue({{"action", "view"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
     return make_pair(s, get<string>(results[0]["content_type"]));
   });
 
-  wrapPost({Capability::IsUser}, "/upload", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
+  sws.wrapPost({Capability::IsUser}, "/upload", [&sws](const auto& req, auto& res, const std::string& user) {
     time_t tstamp = time(0);
     string postId = req.get_file_value("postId").content;
     if(postId.empty()) {
       postId = makeShortID(getRandom63());
-      lsqw.addValue({{"id", postId}, {"user", user}, {"stamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
+      sws.d_lsqw.addValue({{"id", postId}, {"user", user}, {"stamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
     }
-    else if(!u.userHasCap(user, Capability::Admin)) {
-      auto access=lsqw.query("select id from posts where id=? and user=?", {postId, user});
+    else if(!sws.d_users.userHasCap(user, Capability::Admin)) {
+      auto access=sws.d_lsqw.query("select id from posts where id=? and user=?", {postId, user});
       if(access.empty())
         throw std::runtime_error("Attempt to upload to post that's not ours!");
     }
@@ -269,7 +209,7 @@ int trifectaMain(int argc, const char**argv)
       }
       vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
       auto imgid=makeShortID(getRandom63());
-      lsqw.addValue({{"id", imgid},
+      sws.d_lsqw.addValue({{"id", imgid},
                      {"ip", getIP(req)},
                      {"tstamp", tstamp},
                      {"image", content},
@@ -281,30 +221,30 @@ int trifectaMain(int argc, const char**argv)
       j["id"]=imgid;
       j["postId"] = postId;
       
-      auto row = lsqw.query("select public, publicUntilTstamp from posts where id=?", {postId});
+      auto row = sws.d_lsqw.query("select public, publicUntilTstamp from posts where id=?", {postId});
       if(!row.empty()) {
         j["public"] = get<int64_t>(row[0]["public"]);
         j["publicUntil"] = get<int64_t>(row[0]["publicUntilTstamp"]);;
       }
-      lsqw.addValue({{"action", "upload"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", tstamp}}, "log");
+      sws.d_lsqw.addValue({{"action", "upload"} , {"user", user}, {"imageId", imgid}, {"ip", getIP(req)}, {"tstamp", tstamp}}, "log");
     }
     return j;
   });
   
-  wrapPost({Capability::IsUser}, "/delete-image/(.+)", [&lsqw, &u](const auto& req, auto& res, const std::string& user) {
+  sws.wrapPost({Capability::IsUser}, "/delete-image/(.+)", [&sws](const auto& req, auto& res, const std::string& user) {
     string imgid = req.matches[1];
-    checkImageOwnership(lsqw, u, user, imgid);
+    checkImageOwnership(sws.d_lsqw, sws.d_users, user, imgid);
     
-    lsqw.query("delete from images where id=?", {imgid});
-    lsqw.addValue({{"action", "delete-image"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
+    sws.d_lsqw.query("delete from images where id=?", {imgid});
+    sws.d_lsqw.addValue({{"action", "delete-image"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
   
-  wrapPost({Capability::IsUser}, "/delete-post/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+  sws.wrapPost({Capability::IsUser}, "/delete-post/(.+)", [&sws](const auto& req, auto& res, const string& user) {
     string postid = req.matches[1];
     nlohmann::json j{{"ok", 0}};
-    if(canTouchPost(lsqw, u, user, postid)) {
-      lsqw.query("delete from posts where id=?", {postid});
+    if(canTouchPost(sws.d_lsqw, sws.d_users, user, postid)) {
+      sws.d_lsqw.query("delete from posts where id=?", {postid});
       j["ok"]=1;
     }
     else {
@@ -313,38 +253,38 @@ int trifectaMain(int argc, const char**argv)
     return j;
   });
   
-  wrapPost({Capability::IsUser}, "/set-post-title/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+  sws.wrapPost({Capability::IsUser}, "/set-post-title/(.+)", [&sws](const auto& req, auto& res, const string& user) {
     string postid = req.matches[1];
     string title = req.get_file_value("title").content;
     
-    auto rows = lsqw.query("select user from posts where id=?", {postid});
+    auto rows = sws.d_lsqw.query("select user from posts where id=?", {postid});
     if(rows.size() != 1)
       throw std::runtime_error("Attempting to change title for post that does not exist");
     
-    if(get<string>(rows[0]["user"]) != user && !u.userHasCap(user, Capability::Admin))
+    if(get<string>(rows[0]["user"]) != user && !sws.d_users.userHasCap(user, Capability::Admin))
       throw std::runtime_error("Attempting to change title for post that is not yours and you are not admin");
     
-    lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
-    lsqw.addValue({{"action", "set-post-title"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
+    sws.d_lsqw.query("update posts set title=? where user=? and id=?", {title, user, postid});
+    sws.d_lsqw.addValue({{"action", "set-post-title"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
   
-  wrapPost({Capability::IsUser}, "/set-image-caption/(.+)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+  sws.wrapPost({Capability::IsUser}, "/set-image-caption/(.+)", [&sws](const auto& req, auto& res, const string& user) {
     string imgid = req.matches[1];
     string caption = req.get_file_value("caption").content;
     
-    checkImageOwnership(lsqw, u, user, imgid);
-    lsqw.query("update images set caption=? where id=?", {caption, imgid});
-    lsqw.addValue({{"action", "set-image-caption"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
+    checkImageOwnership(sws.d_lsqw, sws.d_users, user, imgid);
+    sws.d_lsqw.query("update images set caption=? where id=?", {caption, imgid});
+    sws.d_lsqw.addValue({{"action", "set-image-caption"}, {"ip", getIP(req)}, {"user", user}, {"imageId", imgid}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
   
-  wrapPost({Capability::IsUser}, "/set-post-public/([^/]+)/([01])/?([0-9]*)", [&lsqw, &u](const auto& req, auto& res, const string& user) {
+  sws.wrapPost({Capability::IsUser}, "/set-post-public/([^/]+)/([01])/?([0-9]*)", [&sws](const auto& req, auto& res, const string& user) {
     string postid = req.matches[1];
     bool pub = stoi(req.matches[2]);
     time_t until=0;
     
-    if(!canTouchPost(lsqw, u, user, postid))
+    if(!canTouchPost(sws.d_lsqw, sws.d_users, user, postid))
       throw std::runtime_error("Attempt to change public status of post you can't touch");
     if(req.matches.size() > 3) {
       string untilStr = req.matches[3];
@@ -356,203 +296,31 @@ int trifectaMain(int argc, const char**argv)
       throw std::runtime_error("Attempting to set nonsensical combination for public");
     
     if(until)
-      lsqw.query("update posts set public = ?, publicUntilTstamp=? where id=?", {pub, until, postid});
+      sws.d_lsqw.query("update posts set public = ?, publicUntilTstamp=? where id=?", {pub, until, postid});
     else
-      lsqw.query("update posts set public =? where id=?", {pub, postid});
-    lsqw.addValue({{"action", "change-post-public"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
+      sws.d_lsqw.query("update posts set public =? where id=?", {pub, postid});
+    sws.d_lsqw.addValue({{"action", "change-post-public"}, {"ip", getIP(req)}, {"user", user}, {"postId", postid}, {"pub", pub}, {"tstamp", time(0)}}, "log");
     return nlohmann::json{{"ok", 1}};
   });
     
-  wrapGet({Capability::IsUser}, "/my-images", [&lsqw](const auto &req, auto &res, const string& user) {
-    return lsqw.queryJRet("select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {user});
+  sws.wrapGet({Capability::IsUser}, "/my-images", [&sws](const auto &req, auto &res, const string& user) {
+    return sws.d_lsqw.queryJRet("select images.id as id, postid, images.tstamp, content_type,length(image) as size, public, posts.publicUntilTstamp,title,caption from images,posts where postId = posts.id and user=?", {user});
     });
 
-  wrapGet({Capability::Admin}, "/all-images", [&lsqw](const auto &req, auto &res, const string& user) {
-    return lsqw.queryJRet("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
+  sws.wrapGet({Capability::Admin}, "/all-images", [&sws](const auto &req, auto &res, const string& user) {
+    return sws.d_lsqw.queryJRet("select images.id as id, postId, user,tstamp,content_type,length(image) as size, posts.public, ip from images,posts where posts.id=images.postId");
   });
 
-  // standard:
-
-  wrapGet({}, "/status", [&u](const auto &req, httplib::Response &res, const std::string& user) {
-    nlohmann::json j{{"ok", 1}};
-    j["login"] = !user.empty();
-    j["admin"] = false;
-    if(!user.empty()) {
-      j["user"] = user;
-      j["admin"] = u.userHasCap(user, Capability::Admin);
-      j["email"] = u.getEmail(user);
-      j["hasPw"] = u.hasPassword(user);
-    }
-    return j;
-  });
-
-  wrapPost({}, "/login", [&lsqw, &sessions, &u](const auto &req, httplib::Response &res, const std::string& ign) {
+  sws.wrapPost({}, "/get-signin-email", [&sws, &args, canURL](const auto &req, httplib::Response &res, const std::string& ign) {
     string user = req.get_file_value("user").content;
-    string password = req.get_file_value("password").content;
-    nlohmann::json j{{"ok", 0}};
-    if(u.checkPassword(user, password)) {
-      string ip=getIP(req), agent= req.get_header_value("User-Agent");
-      string sessionid = sessions.createSessionForUser(user, agent, ip);
-      res.set_header("Set-Cookie",
-                     "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-      cout<<"Logged in user "<<user<<endl;
-      j["ok"]=1;
-      j["message"]="welcome!";
-      lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
-      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
-    }
-    else {
-      cout<<"Wrong user or password for user " << user <<endl;
-      j["message"]="Wrong user or password";
-      lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
-    }
-    return j;
-  });
-
-  wrapPost({Capability::IsUser}, "/change-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    auto origpwfield = req.get_file_value("password0");
-    auto pwfield = req.get_file_value("password1");
-    if(pwfield.content.empty())
-      throw std::runtime_error("Can't set an empty password");
-    if(u.hasPassword(user) && !u.checkPassword(user, origpwfield.content)) {
-      throw std::runtime_error("Original password not correct");
-    }
-    cout<<"Attemping to set password for user "<<user<<endl;
-    u.changePassword(user, pwfield.content);
-    return nlohmann::json{{"ok", 1}, {"message", "Changed password"}};
-  });
-  
-  wrapPost({}, "/join-session/(.*)", [&lsqw, &u, &sessions](const auto& req, auto& res, const string&) {
-    string sessionid = req.matches[1];
-    nlohmann::json j{{"ok", 0}};
-
-    auto c = lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
-    if(c.size()==1) {
-      string user= get<string>(c[0]["user"]);
-      // delete this temporary session
-      sessions.dropSession(sessionid, user);
-      // emailauthenticated session so it can reset your password, but no expiration
-      string newsessionid = sessions.createSessionForUser(user, "synth", getIP(req), true);
-      res.set_header("Set-Cookie",
-                     "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-      lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
-      j["ok"]=1;
-    }
-    else
-      cout<<"Could not find authenticated session "<<sessionid<<endl;
-    return j;
-  });
-
-  wrapPost({Capability::IsUser}, "/change-my-email/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    auto email = req.get_file_value("email").content;
-    u.setEmail(user, email);
-    return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
-  });
-
-
-  wrapGet({Capability::IsUser}, "/my-sessions", [&lsqw](const auto&req, auto &res, const string& user) {
-    return lsqw.queryJRet("select * from sessions where user = ?", {user});
-  });
-
-  wrapPost({Capability::IsUser}, "/kill-my-session/([^/]+)", [&lsqw, &sessions](const auto& req, auto& res, const string& user) {
-    string session = req.matches[1];
-    sessions.dropSession(session, user);
-    lsqw.addValue({{"action", "kill-my-session"}, {"user", user}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json{{"ok", 1}};
-  });
-  
-  wrapPost({Capability::IsUser}, "/logout", [&lsqw, &sessions](const auto &req, auto &res, const string& user)  {
-    lsqw.addValue({{"action", "logout"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
-    try {
-      sessions.dropSession(getSessionID(req));
-    }
-    catch(std::exception& e) {
-      fmt::print("Failed to drop session from the database, perhaps there was none\n");
-    }
-    res.set_header("Set-Cookie",
-                   "session="+getSessionID(req)+"; SameSite=Strict; Path=/; Max-Age=0");
-    return nlohmann::json{{"ok", 1}};
-  });
-
-    
-  wrapGet({Capability::Admin}, "/all-users", [&lsqw](const auto &req, auto &res, const string& ) {
-    return lsqw.queryJRet("select user, email, disabled, lastLoginTstamp, admin from users");
-  });
-    
-  wrapGet({Capability::Admin}, "/all-sessions", [&lsqw](const auto&req, auto &res, const string& user) {
-    return lsqw.queryJRet("select * from sessions");
-  });
-    
-  wrapPost({Capability::Admin}, "/create-user", [&u](const auto &req, auto &res, const string& ) {
-    string password1 = req.get_file_value("password1").content;
-    string user = req.get_file_value("user").content;
-    string email = req.get_file_value("email").content;
-    nlohmann::json j;
-      
-    if(user.empty()) {
-      j["ok"]=0;
-      j["message"] = "User field empty";
-    }
-    else {
-      u.createUser(user, password1, email, false);
-      j["ok"] = 1;
-    }
-    return j;
-  });
-    
-  wrapPost({Capability::Admin}, "/change-user-disabled/([^/]+)/([01])", [&lsqw](const auto& req, auto& res, const string& ) {
-    string user = req.matches[1];
-    bool disabled = stoi(req.matches[2]);
-    lsqw.query("update users set disabled = ? where user=?", {disabled, user});
-    if(disabled) {
-      lsqw.query("delete from sessions where user=?", {user}); // XX candidate for Sessions class
-    }
-    lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json{{"ok", 1}};
-  });
-    
-  wrapPost({Capability::Admin}, "/change-password/?", [&lsqw, &u](const auto& req, auto& res, const string&) {
-    auto pwfield = req.get_file_value("password");
-    if(pwfield.content.empty())
-      throw std::runtime_error("Can't set an empty password");
-      
-    string user = req.get_file_value("user").content;
-    cout<<"Attemping to set password for user "<<user<<endl;
-    u.changePassword(user, pwfield.content);
-    return nlohmann::json{{"ok", 1}};
-  });
-    
-  wrapPost({Capability::Admin}, "/kill-session/([^/]+)", [&lsqw, &sessions](const auto& req, auto& res, const string& ign) {
-    string session = req.matches[1];
-    sessions.dropSession(session);
-    lsqw.addValue({{"action", "kill-session"}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json{{"ok", 1}};
-  });
-    
-  wrapPost({Capability::Admin}, "/del-user/([^/]+)", [&lsqw, &u](const auto& req, auto& res, const string&) {
-    string user = req.matches[1];
-    u.delUser(user);
-      
-    // XX logging is weird, 'user' should likely be called 'subject' here
-    lsqw.addValue({{"action", "del-user"}, {"ip", getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
-    return nlohmann::json{{"ok", 1}};
-  });
-
-  wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [&lsqw, &u](const auto& req, auto& res, const string& user) {
-    u.changePassword(user, "");
-    return nlohmann::json{{"ok", 1}};
-  });
-  
-  wrapPost({}, "/get-signin-email", [&lsqw, &sessions, &u, &canURL, &args](const auto &req, httplib::Response &res, const std::string& ign) {
-    string user = req.get_file_value("user").content;
-    string email = u.getEmail(user); // CHECK FOR DISABLED USER!!
+    string email = sws.d_users.getEmail(user); // CHECK FOR DISABLED USER!!
     fmt::print("User '{}', email '{}'\n", user, email);
     nlohmann::json j;
     j["message"] = "If this user exists and has an email address, a message was sent";
     j["ok"]=1;
     if(!email.empty()) {
       // valid for 1 day
-      string session = sessions.createSessionForUser(user, "Change password session", getIP(req), true, time(0)+86400); // authenticated session
+      string session = sws.d_sessions.createSessionForUser(user, "Change password session", getIP(req), true, time(0)+86400); // authenticated session
       string dest=canURL;
       if(dest.empty() || *dest.rbegin()!='/')
         dest += '/';
@@ -568,22 +336,16 @@ int trifectaMain(int argc, const char**argv)
   });
 
   
-  wrapPost({Capability::Admin}, "/stop" , [&lsqw, &svr](const auto& req, auto& res, const string& wuser) {
-    lsqw.addValue({{"action", "stop"}, {"ip", getIP(req)}, {"user", wuser}, {"tstamp", time(0)}}, "log");
-    svr.stop();
-    return nlohmann::json{{"ok", 1}};
-  });
-  
   string laddr = args.get<string>("local-address");
   cout<<"Will listen on http://"<< laddr <<":"<<args.get<int>("port")<<endl;
 
-  svr.set_socket_options([](socket_t sock) {
+  sws.d_svr.set_socket_options([](socket_t sock) {
    int yes = 1;
    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,
                 reinterpret_cast<const void *>(&yes), sizeof(yes));
   });
 
-  if(!svr.listen(laddr, args.get<int>("port"))) {
+  if(!sws.d_svr.listen(laddr, args.get<int>("port"))) {
     cout<<"Error launching server: "<<strerror(errno)<<endl;
     return EXIT_FAILURE;
   }

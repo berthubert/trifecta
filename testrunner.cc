@@ -121,10 +121,9 @@ TEST_CASE("basic web tests") {
   httplib::Client cli("127.0.0.1", 9999);
 
   auto headers = getTFS().doLogin();
-
+  
   auto res = cli.Get("/status", headers);
   REQUIRE(res != 0);
-
   nlohmann::json j = nlohmann::json::parse(res->body);
   CHECK(j["admin"]==true);
   CHECK(j["user"]=="admin");
@@ -562,6 +561,32 @@ TEST_CASE("email address change test") {
 
   j = nlohmann::json::parse(res->body);
   CHECK(j["email"]=="j0hn-243243@gmail.com");
+
+
+  httplib::MultipartFormDataItems items2 = {
+    { "email", "j0hn-blah-243243@gmail.com", "email"},
+    { "user", "j0hn", "user"}
+  };
+
+  // and now using the admin interface
+  res = cli.Post("/change-email", adminSession, items2);
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==1);
+
+  res = cli.Get("/status", j0hnSession);
+  REQUIRE(res != 0);
+
+  j = nlohmann::json::parse(res->body);
+  
+  CHECK(j["email"]=="j0hn-blah-243243@gmail.com");
+
+  // and now using the admin interface, but not as admin
+  res = cli.Post("/change-email", j0hnSession, items2);
+
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==0);
 }
 
 TEST_CASE("email test" * doctest::skip(true)) {

@@ -129,8 +129,6 @@ std::string getIP(const httplib::Request& req)
   return req.remote_addr;
 }
 
-
-
 // do not put UTF-8 or anything in this, it won't work. US-ASCII. 
 void sendAsciiEmailAsync(const std::string& server, const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody)
 {
@@ -303,3 +301,212 @@ void Sessions::dropSession(const std::string& sessionid, std::optional<string> u
     d_lsqw.query("delete from sessions where id=? and user=?", {sessionid, *user});
 }
 
+
+
+void SimpleWebSystem::standardFunctions()
+{
+  wrapGet({}, "/status", [this](const auto &req, httplib::Response &res, const std::string& user) {
+    nlohmann::json j{{"ok", 1}};
+    j["login"] = !user.empty();
+    j["admin"] = false;
+    if(!user.empty()) {
+      j["user"] = user;
+      j["admin"] = d_users.userHasCap(user, Capability::Admin);
+      j["email"] = d_users.getEmail(user);
+      j["hasPw"] = d_users.hasPassword(user);
+    }
+    return j;
+  });
+
+  wrapPost({}, "/login", [this](const auto &req, httplib::Response &res, const std::string& ign) {
+    string user = req.get_file_value("user").content;
+    string password = req.get_file_value("password").content;
+    nlohmann::json j{{"ok", 0}};
+    if(d_users.checkPassword(user, password)) {
+      string ip=getIP(req), agent= req.get_header_value("User-Agent");
+      string sessionid = d_sessions.createSessionForUser(user, agent, ip);
+      res.set_header("Set-Cookie",
+                     "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+      cout<<"Logged in user "<<user<<endl;
+      j["ok"]=1;
+      j["message"]="welcome!";
+      d_lsqw.addValue({{"action", "login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+      d_lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
+    }
+    else {
+      cout<<"Wrong user or password for user " << user <<endl;
+      j["message"]="Wrong user or password";
+      d_lsqw.addValue({{"action", "failed-login"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+    }
+    cout<<"Going to return "<<j<<endl;
+    return j;
+  });
+
+  wrapPost({Capability::IsUser}, "/change-my-password/?", [this](const auto& req, auto& res, const string& user) {
+    auto origpwfield = req.get_file_value("password0");
+    auto pwfield = req.get_file_value("password1");
+    if(pwfield.content.empty())
+      throw std::runtime_error("Can't set an empty password");
+    if(d_users.hasPassword(user) && !d_users.checkPassword(user, origpwfield.content)) {
+      throw std::runtime_error("Original password not correct");
+    }
+    cout<<"Attemping to set password for user "<<user<<endl;
+    d_users.changePassword(user, pwfield.content);
+    return nlohmann::json{{"ok", 1}, {"message", "Changed password"}};
+  });
+  
+  wrapPost({}, "/join-session/(.*)", [this](const auto& req, auto& res, const string&) {
+    string sessionid = req.matches[1];
+    nlohmann::json j{{"ok", 0}};
+
+    auto c = d_lsqw.query("select user, id from sessions where id=? and authenticated=1 and expireTstamp > ?", {sessionid, time(0)});
+    if(c.size()==1) {
+      string user= get<string>(c[0]["user"]);
+      // delete this temporary session
+      d_sessions.dropSession(sessionid, user);
+      // emailauthenticated session so it can reset your password, but no expiration
+      string newsessionid = d_sessions.createSessionForUser(user, "synth", getIP(req), true);
+      res.set_header("Set-Cookie",
+                     "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+      d_lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
+      j["ok"]=1;
+    }
+    else
+      cout<<"Could not find authenticated session "<<sessionid<<endl;
+    return j;
+  });
+
+  wrapPost({Capability::IsUser}, "/change-my-email/?", [this](const auto& req, auto& res, const string& user) {
+    auto email = req.get_file_value("email").content;
+    d_users.setEmail(user, email);
+    return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
+  });
+
+
+  wrapGet({Capability::IsUser}, "/my-sessions", [this](const auto&req, auto &res, const string& user) {
+    return d_lsqw.queryJRet("select * from sessions where user = ?", {user});
+  });
+
+  wrapPost({Capability::IsUser}, "/kill-my-session/([^/]+)", [this](const auto& req, auto& res, const string& user) {
+    string session = req.matches[1];
+    d_sessions.dropSession(session, user);
+    d_lsqw.addValue({{"action", "kill-my-session"}, {"user", user}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
+    return nlohmann::json{{"ok", 1}};
+  });
+  
+  wrapPost({Capability::IsUser}, "/logout", [this](const auto &req, auto &res, const string& user)  {
+    d_lsqw.addValue({{"action", "logout"}, {"user", user}, {"ip", getIP(req)}, {"tstamp", time(0)}}, "log");
+    try {
+      d_sessions.dropSession(getSessionID(req));
+    }
+    catch(std::exception& e) {
+      fmt::print("Failed to drop session from the database, perhaps there was none\n");
+    }
+    res.set_header("Set-Cookie",
+                   "session="+getSessionID(req)+"; SameSite=Strict; Path=/; Max-Age=0");
+    return nlohmann::json{{"ok", 1}};
+  });
+
+    
+  wrapGet({Capability::Admin}, "/all-users", [this](const auto &req, auto &res, const string& ) {
+    return d_lsqw.queryJRet("select user, email, disabled, lastLoginTstamp, admin from users");
+  });
+    
+  wrapGet({Capability::Admin}, "/all-sessions", [this](const auto&req, auto &res, const string& user) {
+    return d_lsqw.queryJRet("select * from sessions");
+  });
+    
+  wrapPost({Capability::Admin}, "/create-user", [this](const auto &req, auto &res, const string& ) {
+    string password1 = req.get_file_value("password1").content;
+    string user = req.get_file_value("user").content;
+    string email = req.get_file_value("email").content;
+    nlohmann::json j;
+      
+    if(user.empty()) {
+      j["ok"]=0;
+      j["message"] = "User field empty";
+    }
+    else {
+      d_users.createUser(user, password1, email, false);
+      j["ok"] = 1;
+    }
+    return j;
+  });
+    
+  wrapPost({Capability::Admin}, "/change-user-disabled/([^/]+)/([01])", [this](const auto& req, auto& res, const string& ) {
+    string user = req.matches[1];
+    bool disabled = stoi(req.matches[2]);
+    d_lsqw.query("update users set disabled = ? where user=?", {disabled, user});
+    if(disabled) {
+      d_lsqw.query("delete from sessions where user=?", {user}); // XX candidate for Sessions class
+    }
+    d_lsqw.addValue({{"action", "change-user-disabled"}, {"user", user}, {"ip", getIP(req)}, {"disabled", disabled}, {"tstamp", time(0)}}, "log");
+    return nlohmann::json{{"ok", 1}};
+  });
+    
+  wrapPost({Capability::Admin}, "/change-password/?", [this](const auto& req, auto& res, const string&) {
+    auto pwfield = req.get_file_value("password");
+    if(pwfield.content.empty())
+      throw std::runtime_error("Can't set an empty password");
+      
+    string user = req.get_file_value("user").content;
+    cout<<"Attemping to set password for user "<<user<<endl;
+    d_users.changePassword(user, pwfield.content);
+    return nlohmann::json{{"ok", 1}};
+  });
+
+  wrapPost({Capability::Admin}, "/change-email/?", [this](const auto& req, auto& res, const string& ) {
+    auto email = req.get_file_value("email").content;
+    auto user = req.get_file_value("user").content;
+    d_users.setEmail(user, email);
+    return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
+  });
+
+  
+  wrapPost({Capability::Admin}, "/kill-session/([^/]+)", [this](const auto& req, auto& res, const string& ign) {
+    string session = req.matches[1];
+    d_sessions.dropSession(session);
+    d_lsqw.addValue({{"action", "kill-session"}, {"ip", getIP(req)}, {"session", session}, {"tstamp", time(0)}}, "log");
+    return nlohmann::json{{"ok", 1}};
+  });
+    
+  wrapPost({Capability::Admin}, "/del-user/([^/]+)", [this](const auto& req, auto& res, const string&) {
+    string user = req.matches[1];
+    d_users.delUser(user);
+      
+    // XX logging is weird, 'user' should likely be called 'subject' here
+    d_lsqw.addValue({{"action", "del-user"}, {"ip", getIP(req)}, {"user", user}, {"tstamp", time(0)}}, "log");
+    return nlohmann::json{{"ok", 1}};
+  });
+
+  wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [this](const auto& req, auto& res, const string& user) {
+    d_users.changePassword(user, "");
+    return nlohmann::json{{"ok", 1}};
+  });
+  
+  wrapPost({Capability::Admin}, "/stop" , [this](const auto& req, auto& res, const string& wuser) {
+    d_lsqw.addValue({{"action", "stop"}, {"ip", getIP(req)}, {"user", wuser}, {"tstamp", time(0)}}, "log");
+    d_svr.stop();
+    return nlohmann::json{{"ok", 1}};
+  });
+  
+
+}
+
+SimpleWebSystem::SimpleWebSystem(LockedSqw& lsqw) : d_lsqw(lsqw), d_users(lsqw), d_sessions(lsqw)
+{
+  d_svr.set_exception_handler([](const auto& req, auto& res, std::exception_ptr ep) {
+    string reason;
+    try {
+      std::rethrow_exception(ep);
+    } catch (std::exception &e) {
+      reason = fmt::format("An error occurred: {}", e.what());
+    } catch (...) {
+      reason = "An unknown error occurred";
+    }
+    cout<<req.path<<": exception for "<<reason<<endl;
+    nlohmann::json j{{"ok", 0}, {"message", reason}, {"reason", reason}};
+    res.set_content(j.dump(), "application/json");
+    res.status = 500;
+  });
+}

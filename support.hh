@@ -82,3 +82,55 @@ private:
   LockedSqw& d_lsqw;
 };
 
+struct SimpleWebSystem
+{
+  explicit SimpleWebSystem(LockedSqw& lsqw);
+  LockedSqw& d_lsqw;
+  Users d_users;
+  Sessions d_sessions;
+  httplib::Server d_svr;
+
+  template<typename Func>
+  void wrapGetOrPost(bool getOrPost, const set<Capability>& caps, const std::string& pattern, Func f) {
+    /*
+    cout<< (getOrPost ? "GET " : "POST") <<" caps";
+    if(caps.empty())
+      cout<<"  NONE ";
+    if(caps.count(Capability::IsUser))
+      cout<<" IsUser";
+    if(caps.count(Capability::EmailAuthenticated))
+      cout<<" EmailAuthenticated ";
+    if(caps.count(Capability::Admin))
+      cout<<" Admin ";
+    cout<<" "<<pattern<<endl;
+    */  
+    auto func = [f, this, caps](const httplib::Request &req, httplib::Response &res) {
+      string user;
+      try {
+        user = d_sessions.getUser(req);
+      }
+      catch(exception& e) {
+        // cout<<"Error getting user from session: "<<e.what()<<endl;
+      }
+      for(const auto& c: caps) {
+        if(!d_users.userHasCap(user, c, &req))
+          throw std::runtime_error(fmt::format("Lacked a capability ({})", (int)c));
+      }
+      auto output = f(req, res, user);
+      if constexpr (std::is_same_v<decltype(output), std::pair<string, string>>) {
+        res.set_content(output.first, output.second);
+      }
+      else {
+        res.set_content(output.dump(), "application/json");
+      }
+    };
+    getOrPost ? d_svr.Get(pattern, func) : d_svr.Post(pattern, func);
+  }
+
+  
+  template<typename func>
+  void wrapGet(const set<Capability>& caps, const std::string& pattern, func f) { wrapGetOrPost(true, caps, pattern, f); };
+  template<typename func>
+  void wrapPost(const set<Capability>& caps, const std::string& pattern, func f) { wrapGetOrPost(false, caps, pattern, f); };
+  void standardFunctions();
+};
