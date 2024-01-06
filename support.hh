@@ -7,6 +7,7 @@
 #include "jsonhelper.hh"
 #include "nlohmann/json.hpp"
 #include "sqlwriter.hh"
+#include "fmt/core.h"
 #include "httplib.h"
 
 struct LockedSqw
@@ -91,7 +92,7 @@ struct SimpleWebSystem
   httplib::Server d_svr;
 
   template<typename Func>
-  void wrapGetOrPost(bool getOrPost, const set<Capability>& caps, const std::string& pattern, Func f) {
+  void wrapGetOrPost(bool getOrPost, const std::set<Capability>& caps, const std::string& pattern, Func f) {
     /*
     cout<< (getOrPost ? "GET " : "POST") <<" caps";
     if(caps.empty())
@@ -105,11 +106,11 @@ struct SimpleWebSystem
     cout<<" "<<pattern<<endl;
     */  
     auto func = [f, this, caps](const httplib::Request &req, httplib::Response &res) {
-      string user;
+      std::string user;
       try {
         user = d_sessions.getUser(req);
       }
-      catch(exception& e) {
+      catch(std::exception& e) {
         // cout<<"Error getting user from session: "<<e.what()<<endl;
       }
       for(const auto& c: caps) {
@@ -117,7 +118,7 @@ struct SimpleWebSystem
           throw std::runtime_error(fmt::format("Lacked a capability ({})", (int)c));
       }
       auto output = f(req, res, user);
-      if constexpr (std::is_same_v<decltype(output), std::pair<string, string>>) {
+      if constexpr (std::is_same_v<decltype(output), std::pair<std::string, std::string>>) {
         res.set_content(output.first, output.second);
       }
       else {
@@ -129,8 +130,8 @@ struct SimpleWebSystem
 
   
   template<typename func>
-  void wrapGet(const set<Capability>& caps, const std::string& pattern, func f) { wrapGetOrPost(true, caps, pattern, f); };
+  void wrapGet(const std::set<Capability>& caps, const std::string& pattern, func f) { wrapGetOrPost(true, caps, pattern, f); };
   template<typename func>
-  void wrapPost(const set<Capability>& caps, const std::string& pattern, func f) { wrapGetOrPost(false, caps, pattern, f); };
+  void wrapPost(const std::set<Capability>& caps, const std::string& pattern, func f) { wrapGetOrPost(false, caps, pattern, f); };
   void standardFunctions();
 };
