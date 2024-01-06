@@ -257,6 +257,14 @@ function processCaptionKey(f, el, e, imageid) {
     fetch(`set-image-caption/${imageid}`, { method: "POST", body: formData });
 }
 
+function processEmailChange(f, el, user) {
+    const formData = new FormData();
+    formData.append('email', el.value);
+    formData.append('user', user);
+
+    fetch('change-email', { method: "POST", body: formData });
+}
+
 async function uploadFile(clipboardItem, f) {
     if (clipboardItem.type.startsWith('image/')) {
         const formData = new FormData();

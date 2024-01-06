@@ -175,6 +175,7 @@
                 <th>Lastlogin</th>
                 <th>Email</th>
                 <th>Delete</th>
+                <th>Invite</th>
               </tr>
               <template x-for="u in users">
                 <tr>
@@ -186,8 +187,9 @@
                   <td
                     x-text="if(u.lastLoginTstamp) return new Date(u.lastLoginTstamp * 1000).toLocaleString(); else return ">
                   </td>
-                  <td x-text="u.email"></td>
+                  <td><input @keyup="processEmailChange($data, $el, u.user)" :value="u.email"></input></td>
                   <td class="deleteicon" @click.prevent="doDelUser($data, u.user)"></td>
+                  <td><button @click.prevent="doAskForSigninEmail(u.user, $data)">Invite</button></td>
                 </tr>
               </template>
             </table>
