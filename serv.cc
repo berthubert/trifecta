@@ -7,6 +7,7 @@
 #include "argparse/argparse.hpp"
 #include "fmt/core.h"
 #include "support.hh"
+#include "git_version.h"
 using namespace std;
 
 /*
@@ -62,7 +63,7 @@ bool shouldShow(Users& u, const std::string& user, unordered_map<string, MiniSQL
 
 int trifectaMain(int argc, const char**argv)
 {
-  argparse::ArgumentParser args("serv");
+  argparse::ArgumentParser args("serv", GIT_VERSION);
 
   args.add_argument("db-file").help("file to read database from").default_value("trifecta.sqlite");
   args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");

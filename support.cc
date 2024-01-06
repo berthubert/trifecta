@@ -5,7 +5,7 @@
 #include "support.hh"
 #include <sclasses.hh>
 #include <fmt/chrono.h>
-
+#include "git_version.h"
 using namespace std;
 
 std::string& testrunnerPw()
@@ -305,6 +305,7 @@ void SimpleWebSystem::standardFunctions()
     nlohmann::json j{{"ok", 1}};
     j["login"] = !user.empty();
     j["admin"] = false;
+    j["version"] = GIT_VERSION;
     if(!user.empty()) {
       j["user"] = user;
       j["admin"] = d_users.userHasCap(user, Capability::Admin);
