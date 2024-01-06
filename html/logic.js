@@ -81,7 +81,8 @@ function doLogout(f) {
 
 function getImageList(f) {
     fetch('all-images').then(response => response.json()).then(data => {
-        f.images = data;
+        if(Array.isArray(data)) // otherwise we attempt to show errors as images
+            f.images = data;
     });
 }
 function getUserList(f) {
@@ -106,10 +107,12 @@ function getMySessionList(f) {
 
 function getMyImageList(f) {
     fetch('my-images').then(response => response.json()).then(data => {
-        // order by postid so that images for the same post are together
-        f.myimages = data.sort((a, b) => {
-            return a.postId < b.postId;
-        })
+        if(Array.isArray(data)) {
+            // order by postid so that images for the same post are together
+            f.myimages = data.sort((a, b) => {
+                return a.postId < b.postId;
+            })
+        }
     });
 }
 
@@ -247,7 +250,6 @@ function doChangeUserDisabled(f, user, el) {
 }
 
 
-//todo remove f, e?
 function processCaptionKey(f, el, e, imageid) {
     const formData = new FormData();
     formData.append('caption', el.value);
