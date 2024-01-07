@@ -15,6 +15,25 @@ std::string& testrunnerPw()
 }
 
 
+void replaceSubstring(std::string &originalString, const std::string &searchString, const std::string &replaceString) {
+  size_t pos = originalString.find(searchString);
+  
+  while (pos != std::string::npos) {
+    originalString.replace(pos, searchString.length(), replaceString);
+    pos = originalString.find(searchString, pos + replaceString.length());
+  }
+}
+
+string htmlEscape(const std::string& str)
+{
+  vector<pair<string,string>> rep{{"&", "&amp;"}, {"<", "&lt;"}, {">", "&gt;"}, {"\"", "&quot;"}, {"'", "&#39;"}};
+  string ret=str;
+  for(auto&& [from,to] : rep)
+    replaceSubstring(ret, from, to);
+  return ret;
+}
+
+
 // turn "abcd=1234; defgh=6934" into a map
 static unordered_map<string,string> getGen(const std::string& cookiestr, const string& sep)
 {

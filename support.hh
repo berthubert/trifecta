@@ -55,6 +55,8 @@ std::string getSessionID(const httplib::Request &req);
 std::string& testrunnerPw();
 void sendAsciiEmailAsync(const std::string& server, const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody);
 std::string getIP(const httplib::Request& req);
+void replaceSubstring(std::string &originalString, const std::string &searchString, const std::string &replaceString);
+std::string htmlEscape(const std::string& str);
 
 enum class Capability {IsUser=1, Admin=2, EmailAuthenticated=3};
 

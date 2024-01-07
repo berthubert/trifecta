@@ -81,6 +81,9 @@ int trifectaMain(int argc, const char**argv)
     if(canURL.empty()) {
       canURL="http://"+args.get<string>("local-address")+":"+to_string(args.get<int>("port"));
     }
+    if(canURL.empty() || *canURL.rbegin()!='/')
+        canURL += '/';
+
   }
   catch (const std::runtime_error& err) {
     std::cout << err.what() << std::endl << args;
@@ -137,8 +140,47 @@ int trifectaMain(int argc, const char**argv)
     fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
   }
 
+  sws.d_svr.set_file_request_handler([&sws, &canURL](const httplib::Request& req, httplib::Response& res) {
+    if(req.path=="/") {
+      string searchString="<!-- opengraph -->";
+      size_t pos = res.body.find(searchString);
+      if(pos == string::npos)
+        return;
+      auto iter = req.params.find("p");
+      if(iter == req.params.end())
+        return;
+
+      string rep;
+      auto rows = sws.d_lsqw.query("select images.id as iid, posts.id as pid, user, title, content_type, caption, public, publicUntilTstamp from posts,images where posts.id=? and posts.id = images.postId", {iter->second});
+      if(rows.empty())
+        return;
+
+      string user;
+      try { user = sws.d_sessions.getUser(req); } catch(...){}
+
+      if(!shouldShow(sws.d_users, user, rows[0]))
+        return;
+
+      rep += fmt::format(R"(<meta property="og:title" content="{}" />)", htmlEscape(get<string>(rows[0]["title"])));
+      rep += fmt::format(R"(<meta property="og:description" content="{}" />)", htmlEscape(get<string>(rows[0]["caption"])));
+      rep += fmt::format(R"(<meta property="og:url" content="{}">)", htmlEscape(canURL+"?p="+get<string>(rows[0]["pid"])));
+      rep += R"(<meta property="og:site_name" content="Trifecta"><meta property="og:type" content="article">)";
+      for(auto& row : rows) {
+        rep += "\n";
+        rep += fmt::format(R"(<meta property="og:image" content="{}" />)", canURL+"i/"+htmlEscape(get<string>(row["iid"])))+"\n";
+        rep += fmt::format(R"(<meta property="og:image:type" content="{}" />)", htmlEscape(get<string>(row["content_type"])))+"\n";
+        rep += fmt::format(R"(<meta property="og:image:alt" content="{}" />)", htmlEscape(get<string>(row["caption"])))+"\n";
+      }
+      /*
+<meta property='article:published_time' content='2023-12-30T10:56:56&#43;01:00'/><meta property='article:modified_time' content='2023-12-30T10:56:56&#43;01:00'/>
+      */
+      
+      res.body.replace(pos, searchString.length(), rep);
+    }
+  });
+  
   sws.d_svr.set_mount_point("/", args.get<string>("html-dir"));
-   
+  
   sws.wrapGet({}, "/getPost/:postid", [](auto& cr) {
     string postid = cr.req.path_params.at("postid");
     nlohmann::json j;
@@ -323,8 +365,6 @@ int trifectaMain(int argc, const char**argv)
       // valid for 1 day
       string session = cr.sessions.createSessionForUser(user, "Change password session", getIP(cr.req), true, time(0)+86400); // authenticated session
       string dest=canURL;
-      if(dest.empty() || *dest.rbegin()!='/')
-        dest += '/';
       dest += "reset.html?session="+session;
       sendAsciiEmailAsync(args.get<string>("smtp-server"), args.get<string>("smtp-from"), email, "Trifecta sign-in link",
                           "Going to this link will allow you to reset your password or sign you in directly: "+dest+"\nEnjoy!");
