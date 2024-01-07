@@ -71,11 +71,15 @@ As owner of a post you can extend or change this limit.
 
 Users can sign in using an temporary email link, and also reset their
 password this way.
+
+Posts in Trifecta get opengraph tags so you get nice previews on social
+media and in messengers.
+
 # Known problems
 
  * UI is still somewhat clunky
  * Security is probably not quite yet where it should be
- * The code is still a mess and not yet "education clean"
+ * The code is still not quite yet "education clean"
 
 More low hanging fruit can be found in the [GitHub issues
 list](https://github.com/berthubert/trifecta/issues).
@@ -173,30 +177,34 @@ podman save localhost/berthubert/trifecta -o trifecta.container
 bzip2 trifecta.container
 ```
 
-This gets you a 2.3 megabyte compressed container you can distribute.
+This gets you a 2.0 megabyte compressed container you can distribute.
 
-To run the image:
+To run the image, run this once:
 
 ```bash
 podman run --init -p 1234:1234             \
   -v /some/place/local-db/:/local-db       \
-  berthubert/trifecta --rnd-admin-password \
-  -l 0.0.0.0
+  berthubert/trifecta                      \
+  -l 0.0.0.0 --rnd-admin-password
 ```
 
 This syntax means:
 
+ * --init means you can ^C the container if needed
  * The binary in the container exposes TCP port 1234, expose it to the world as
    1234 as well
  * Containers are immutable, but we'd love to actually retain uploaded
    images. We therefore mount `/some/place/local-db` on your file system to
    `/local-db` in the container
- * --rnd-admin-password creates an admin user with a random password (which
-   it prints for you)
  * For security reasons, trifecta binds to 127.0.0.1 by default, but
    podman/docker can't see that
+ * --rnd-admin-password creates an admin user with a random password (which
+   it prints for you). 
 
-When running with Docker, pass `--init` to `docker run` so that signals are handled correctly.
+This will exit quickly after creating the admin user.
+
+Next up remove --rnd-admin-password, and start the container again, and you
+are in business.
 
 # Simple Docker build
 
