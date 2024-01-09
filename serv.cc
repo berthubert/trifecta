@@ -367,7 +367,7 @@ int trifectaMain(int argc, const char**argv)
       string dest=canURL;
       dest += "reset.html?session="+session;
       sendAsciiEmailAsync(args.get<string>("smtp-server"), args.get<string>("smtp-from"), email, "Trifecta sign-in link",
-                          "Going to this link will allow you to reset your password or sign you in directly: "+dest+"\nEnjoy!");
+                          "Going to this link will allow you to reset your password or sign you in directly: "+dest+"\nNOTE! This will only work ONCE! Otherwise request a new email. Enjoy!");
       cout<<"Sent email pointing user at "<<dest<<endl;
     }
     else
