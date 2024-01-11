@@ -165,6 +165,7 @@ TEST_CASE("basic web tests") {
 
   REQUIRE(res);
   REQUIRE(res->status == 200);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
 
   ///////////
 
@@ -173,7 +174,7 @@ TEST_CASE("basic web tests") {
 
   REQUIRE(res);
   REQUIRE(res->status == 200);
-
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
   ///////////
 
   res = cli.Post("/set-image-caption/"+upload2, headers,
@@ -181,6 +182,7 @@ TEST_CASE("basic web tests") {
 
   REQUIRE(res);
   REQUIRE(res->status == 200);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
 
   ////
   res = cli.Get("/getPost/"+postId);
@@ -234,7 +236,7 @@ auto createAndLoginUser(httplib::Client& cli, const httplib::Headers& adminSessi
   };
 
   auto res = cli.Post("/create-user", adminSession, items);
-  if(!res || res->status != 200)
+  if(!res || res->status != 200 || nlohmann::json::parse(res->body)["ok"] != 1)
     throw std::runtime_error("Client call to create-user failed");
 
   return getTFS().doLogin(user, password);
@@ -388,17 +390,18 @@ TEST_CASE("web visibility tests") {
   // admin makes post non-public, but confusingly tries to also set a time limit
   res = cli.Post("/set-post-public/"+postId+"/0/" + to_string(time(0)+60), adminSession);
   REQUIRE(res != 0);
-  CHECK(res->status == 500);
+  CHECK(res->status == 200);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 
   // non-admin tries to make post public
   res = cli.Post("/set-post-public/"+postId+"/1/", karelSession);
   REQUIRE(res != 0);
-  CHECK(res->status == 500);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 
   // anony,ous tries to make post public
   res = cli.Post("/set-post-public/"+postId+"/1/");
   REQUIRE(res != 0);
-  CHECK(res->status == 500);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 }
 
 
@@ -451,8 +454,7 @@ TEST_CASE("web abuse tests") {
 
   res = cli.Post("/upload", barakSession, items4);
   REQUIRE(res != 0);
-
-  CHECK(res->status == 500);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 
   // now barak is going to set the title of john's post
 
@@ -460,25 +462,23 @@ TEST_CASE("web abuse tests") {
                  httplib::MultipartFormDataItems({{"title", "this is the title", "title"}}));
 
   REQUIRE(res);
-  CHECK(res->status == 500);
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 
+ 
   // now barak is going to set the caption of john's image
 
   res = cli.Post("/set-image-caption/"+upload1, barakSession,
                  httplib::MultipartFormDataItems({{"caption", "this is the caption", "caption"}}));
 
   REQUIRE(res);
-  CHECK(res->status == 500);
-
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 
   // now barak is going to delete john's image
 
   res = cli.Post("/delete-image/"+upload1, barakSession);
 
   REQUIRE(res);
-  CHECK(res->status == 500);
-
-
+  CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
 }
 
 TEST_CASE("web admin tests") {

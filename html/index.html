@@ -13,7 +13,7 @@
 
 <body>
   <div id="container" x-data="{
-                 message2user: '', 
+                 message2user: '', pwmessage: '', emailmessage: '',
                  post: {},
                  user: {}, 
                  myimages: [],
@@ -299,7 +299,8 @@
                 </tr>
 
                 <tr>
-                  <td colspan="2"><button type="submit">Change</button></td>
+                  <td><button type="submit">Change</button></td>
+                  <td style="color: red;" x-text="pwmessage"></td>
                 </tr>
               </table>
             </form>
@@ -318,7 +319,8 @@
                 </tr>
 
                 <tr>
-                  <td colspan="2"><button type="submit">Change</button></td>
+                  <td><button type="submit">Change</button></td>
+                  <td style="color: red;" x-text="emailmessage"></td>
                 </tr>
               </table>
             </form>

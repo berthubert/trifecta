@@ -190,7 +190,6 @@ void sendAsciiEmailAsync(const std::string& server, const std::string& from, con
   sc.writen(fmt::format("Date: {:%a, %d %b %Y %H:%M:%S %z (%Z)}\r\n", fmt::localtime(time(0))));
   sc.writen("\r\n");
 
-
   string withCrlf;
   for(auto iter = textBody.cbegin(); iter != textBody.cend(); ++iter) {
     if(*iter=='\n' && (iter == textBody.cbegin() || *std::prev(iter)!='\r'))
@@ -531,6 +530,6 @@ SimpleWebSystem::SimpleWebSystem(LockedSqw& lsqw) : d_lsqw(lsqw), d_users(lsqw),
     cout<<req.path<<": exception for "<<reason<<endl;
     nlohmann::json j{{"ok", 0}, {"message", reason}, {"reason", reason}};
     res.set_content(j.dump(), "application/json");
-    res.status = 500;
+    res.status = 200;
   });
 }

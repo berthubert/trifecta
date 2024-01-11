@@ -374,24 +374,26 @@ function doChangeMyPassword(el, f) {
     let pass2 = el["password2"].value;
     ClearMessage(f);
     if (pass1 != pass2) {
-        ShowMessage(f, "Passwords do not match", true);
+        f.pwmessage="Passwords do not match";
         return;
     }
 
     return fetch("change-my-password", { method: "POST", body: new FormData(el) }).then(function(response)  {
         if (response.ok) {
+            console.log(response);
             return response.json().then(data => {
                 if (data.ok) {
-                    ShowMessage(f, "Changed password");
+                    f.pwmessage="Changed password";
                     f.user.hasPw = true;
                 }
                 else {
-                    ShowMessage(f, `Could not change password: ${data.message}`, response);
+                    f.pwmessage=`Could not change password: ${data.message}`;
                 }
             });
         }
         else {
-            ShowMessage(f, "Failed to change password", response);
+            console.log(response);
+            f.pwmessage="Failed to change password: "+response;
         }
     });
 }
@@ -403,15 +405,15 @@ function doChangeMyEmail(el, f) {
         if (response.ok) {
             return response.json().then(data => {
                 if (data.ok) {
-                    ShowMessage(f, "Changed email");
+                    f.emailmessage= "Changed email";
                 }
                 else {
-                    ShowMessage(f, `Could not change email: ${data.message}`, response);
+                    f.emailmessage =`Could not change email: ${data.message}`;
                 }
             });
         }
         else {
-            ShowMessage(f, "Failed to change email", response);
+            f.emailmessage="Failed to change email";
         }
     });
 }
