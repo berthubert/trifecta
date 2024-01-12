@@ -154,7 +154,7 @@ only, use `-l 0.0.0.0` (or TRIFECTA_LOCAL=0.0.0.0) to change this.
 
 # Podman/Docker
 You can get the Docker image by pulling berthubert/trifecta from the Docker
-Hub. There is also a Docker-compose file in [example-configs/compose.yaml],
+Hub. There is also a Docker-compose file in [example-configs/compose.yaml](example-configs/compose.yaml),
 through which you can also configure your container.
 
 If running without Docker-compose, this works both for Podman and Docker:
