@@ -61,18 +61,24 @@ bool shouldShow(Users& u, const std::string& user, unordered_map<string, MiniSQL
   return (!pubUntil || time(0) < pubUntil);
 }
 
+static string getEnvOr(const std::string& envname, const std::string& def)
+{
+  auto ptr = getenv(envname.c_str());
+  return ptr ? string(ptr) : def;
+}
+
 int trifectaMain(int argc, const char**argv)
 {
   argparse::ArgumentParser args("serv", GIT_VERSION);
 
-  args.add_argument("db-file").help("file to read database from").default_value("trifecta.sqlite");
-  args.add_argument("--html-dir").help("directory with our HTML files").default_value("./html/");
+  args.add_argument("db-file").help("file to read database from").default_value(getEnvOr("TRIFECTA_DB", "trifecta.sqlite"));
+  args.add_argument("--html-dir").help("directory with our HTML files").default_value(getEnvOr("TRIFECTA_HTMLDIR", "./html/"));
   args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").default_value(string(""));
-  args.add_argument("-p", "--port").help("port number to listen on").default_value(3456).scan<'i', int>();
-  args.add_argument("--local-address", "-l").help("address to listen on").default_value("127.0.0.1");
-  args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value("127.0.0.1:25");
-  args.add_argument("--smtp-from", "-f").help("Origin/from email address to use").default_value("changeme@example.com");
-  args.add_argument("--canonical-url", "-c").help("Canonical URL of service").default_value("");
+  args.add_argument("-p", "--port").help("port number to listen on").default_value(std::stoi(getEnvOr("TRIFECTA_PORT", "3456"))).scan<'i', int>();
+  args.add_argument("--local-address", "-l").help("address to listen on").default_value(getEnvOr("TRIFECTA_LOCAL", "127.0.0.1"));
+  args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value(getEnvOr("TRIFECTA_SMTPSERVER", "127.0.0.1:25"));
+  args.add_argument("--smtp-from", "-f").help("Origin/from email address to use").default_value(getEnvOr("TRIFECTA_MAILFROM", "changeme@example.com"));
+  args.add_argument("--canonical-url", "-c").help("Canonical URL of service").default_value(getEnvOr("TRIFECTA_CANURL", ""));
 
   string canURL;
   try {
