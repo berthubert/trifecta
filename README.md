@@ -153,15 +153,17 @@ Do know that the default configuration of Trifecta will listen on 127.0.0.1
 only, use `-l 0.0.0.0` (or TRIFECTA_LOCAL=0.0.0.0) to change this.
 
 # Podman/Docker
-You can get the Docker image by pulling berthubert/trifecta
+You can get the Docker image by pulling berthubert/trifecta from the Docker
+Hub. There is also a Docker-compose file in [example-configs/compose.yaml],
+through which you can also configure your container.
 
-Once you have an image, this works both for Podman and Docker:
+If running without Docker-compose, this works both for Podman and Docker:
 
 ```bash
 docker run --init -p 1234:1234             \
   -v /some/place/local-db/:/local-db       \
   berthubert/trifecta                      \
-  -l 0.0.0.0 --rnd-admin-password
+  --rnd-admin-password
 ```
 This syntax means:
 
@@ -171,15 +173,16 @@ This syntax means:
  * Containers are immutable, but we'd love to actually retain uploaded
    images. We therefore mount `/some/place/local-db` on your file system to
    `/local-db` in the container
- * For security reasons, trifecta binds to 127.0.0.1 by default, but
-   podman/docker can't see that
  * --rnd-admin-password creates an admin user with a random password (which
    it prints for you). 
 
 This will exit quickly after creating the admin user.
 
 Next up remove --rnd-admin-password, and start the container again, and you
-are in business.
+are in business. 
+
+Note that if you run using the Docker-compose file, there is a 'command'
+statement there for --rnd-admin-password which you need to uncomment once.
 
 # Building (optional)
 Requires libsqlite3-dev nlohmann-json. On Debian derived
