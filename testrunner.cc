@@ -45,7 +45,7 @@ namespace {
     TrifectaServer() {
       std::thread t1([]() {
         unlink("testrunner.sqlite");
-        const char* argv[] = {"./trifecta", "testrunner.sqlite", "-p", "9999",
+        const char* argv[] = {"./trifecta", "--db-file=testrunner.sqlite", "-p", "9999",
           "--rnd-admin-password=continue",
           "--local-address=127.0.0.1"};
         trifectaMain(6, argv);

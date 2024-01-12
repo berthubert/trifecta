@@ -69,9 +69,9 @@ static string getEnvOr(const std::string& envname, const std::string& def)
 
 int trifectaMain(int argc, const char**argv)
 {
-  argparse::ArgumentParser args("serv", GIT_VERSION);
+  argparse::ArgumentParser args("trifecta", GIT_VERSION);
 
-  args.add_argument("db-file").help("file to read database from").default_value(getEnvOr("TRIFECTA_DB", "trifecta.sqlite"));
+  args.add_argument("--db-file").help("file to read database from").default_value(getEnvOr("TRIFECTA_DB", "trifecta.sqlite"));
   args.add_argument("--html-dir").help("directory with our HTML files").default_value(getEnvOr("TRIFECTA_HTMLDIR", "./html/"));
   args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").default_value(string(""));
   args.add_argument("-p", "--port").help("port number to listen on").default_value(std::stoi(getEnvOr("TRIFECTA_PORT", "3456"))).scan<'i', int>();

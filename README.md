@@ -1,6 +1,25 @@
 # trifecta
-A simple image sharing site, built with a combination of modern C++, database
+A simple open source image sharing site, built with a combination of modern C++, database
 and web technologies. Intended to both be useful and make some points.
+
+Webpage: [berthub.eu/articles/trifecta](https://berthub.eu/articles/trifecta), including links to blog post detailing "why". 
+
+# Description
+Trifecta is a computer program that delivers you a website/web service. Your personal imgur.
+You can paste or drag images to Trifecta. If you upload an image, a post will be created for it automatically. 
+
+A post can contain multiple images. Each image can have a caption, and each post a title. 
+
+Posts can be public or not, or have a time limit on their public visibility.
+As owner of a post you can extend or change this limit.
+
+Users can sign in using an temporary email link, and also reset their
+password this way. Users need not have an actual password.
+
+Posts in Trifecta get opengraph tags so you get nice previews on social
+media and in messengers.
+
+Available as docker/podman, rpm, deb and source. 
 
 # Goals
 
@@ -10,17 +29,16 @@ and web technologies. Intended to both be useful and make some points.
  * Provide an easy on-ramp for "C++ people" to using modern web technology
    * Using a non-bloated minimal framework (alpine.js)
  * Showcase modern C++ and build tools (Meson)
-   * A Rust version of the backend is very welcome!
-   * A Go version of the backend is very welcome!
+   * A Rust, Go, whatever, version of the backend is very welcome!
  * Build something that is extremely robust and secure and does not need
    monthly updates.
-   * Still get high-end features
+   * But still delivers high-end features
  * Actually get an image sharing site for your friends/company
    * Does not provide (moderation) infrastructure for uploads by the public
  * Be a template for other projects
 
-Once done, in ~1000 lines of C++ & Javascript, this will get you a safe and
-secure image sharing site that you could run yourself and forget about.
+In ~1000 lines of C++ & Javascript, this gets you a safe and
+secure image sharing site that you could run yourself and hopefully forget about.
 
 > Note: the security goals have not yet been achieved, heavy development is
 > ongoing. There are no known problems though.
@@ -41,13 +59,14 @@ that also showcases that it is still possible to write small programs with
 a much more limited attack surface.
 
 # Status & Thanks
-Heavy development ongoing!
+Development is still ongoing, but usable. 
 
 Many thanks are also due to early users & contributors:
 
  * Ruben d'Arco
  * Roel van der Made
  * Peter van Dijk
+ * Bryan Seitz
 
 While having 700 (indirect) dependencies is not good, benefiting from very
 good existing software is great:
@@ -57,23 +76,9 @@ good existing software is great:
  * [nlohmann-json](https://github.com/nlohmann/json), great C++ JSON library
  * [Alpine.js](https://alpinejs.dev/), a minimalistic Javascript environment
  * [{fmt}](https://github.com/fmtlib/fmt), excellent string formatting, part of recent C++ standards also
- * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent  HTTP library
+ * [cpp-httplib](https://github.com/yhirose/cpp-httplib), pretty excellent HTTP library
  * [doctest](https://github.com/doctest/doctest), very nice and fast unit  tests
  * [argparse](https://github.com/p-ranav/argparse), great argument parser
-
-# Description
-You can paste or drag images to Trifecta. If you upload an image, a post will be created for it automatically. 
-
-A post can contain multiple images. Each image can have a caption, and each post a title. 
-
-Posts can be public or not, or have a timelimit on their public visibility.
-As owner of a post you can extend or change this limit.
-
-Users can sign in using an temporary email link, and also reset their
-password this way.
-
-Posts in Trifecta get opengraph tags so you get nice previews on social
-media and in messengers.
 
 # Known problems
 
@@ -81,8 +86,7 @@ media and in messengers.
  * Security is probably not quite yet where it should be
  * The code is still not quite yet "education clean"
 
-More low hanging fruit can be found in the [GitHub issues
-list](https://github.com/berthubert/trifecta/issues).
+More low hanging fruit can be found in the [GitHub issues list](https://github.com/berthubert/trifecta/issues).
 
 # Concepts
 More about this can be found on the [Trifecta web page](https://berthub.eu/articles/trifecta/).
@@ -106,30 +110,10 @@ Configuration is read both from the command line and from the environment:
  
 The command line overrides the environment variables.
 
-# Building (optional)
-Requires libsqlite3-dev nlohmann-json. On Debian derived
-systems the following works:
+To get started:
 
 ```
-apt install libsqlite3-dev nlohmann-json3-dev python3-pip pkg-config
-```
-
-In addition, the project requires a recent version of meson, which you can
-get with 'pip3 install meson ninja' or perhaps 'pip install
-meson ninja' and only if that doesn't work 'apt install meson'.
-
-> The meson in Debian bullseye is very old, and will give you a confusing
-> error message about 'git' if you try it. If you [enable
-> bullseye-backports](https://backports.debian.org/Instructions/) you can do
-> `apt install -t bullseye-backports meson` and get a working one. Or use
-> the pip version, which is also great.
-
-Then run:
-
-```
-meson setup build
-meson compile -C build
-./build/trifecta --rnd-admin-password
+trifecta --rnd-admin-password
 ```
 
 And you should be in business. This creates a random admin password, which
@@ -137,10 +121,9 @@ it prints for you. It also prints out the URL on which you can
 contact the service. On first use you'll get some scary looking SQL errors,
 these go away once you've uploaded your first image.
 
-To do admin things (like create new users), visit /admin.html
+To do admin things (like create new users), visit /#admin
 
-To take this into production using nginx (for
-letsencrypt, TLS etc), try:
+To take this into production using nginx (for letsencrypt, TLS etc), try:
 
 ```
 upstream backendtrifect {
@@ -166,9 +149,61 @@ location /trifecta/ {
         add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;" always;
 }
 ```
-
 Do know that the default configuration of Trifecta will listen on 127.0.0.1
-only, use `-l 0.0.0.0` to change this.
+only, use `-l 0.0.0.0` (or TRIFECTA_LOCAL=0.0.0.0) to change this.
+
+# Podman/Docker
+You can get the Docker image by pulling berthubert/trifecta
+
+Once you have an image, this works both for Podman and Docker:
+
+```bash
+docker run --init -p 1234:1234             \
+  -v /some/place/local-db/:/local-db       \
+  berthubert/trifecta                      \
+  -l 0.0.0.0 --rnd-admin-password
+```
+This syntax means:
+
+ * --init means you can ^C the container if needed
+ * The binary in the container exposes TCP port 1234, expose it to the world as
+   1234 as well
+ * Containers are immutable, but we'd love to actually retain uploaded
+   images. We therefore mount `/some/place/local-db` on your file system to
+   `/local-db` in the container
+ * For security reasons, trifecta binds to 127.0.0.1 by default, but
+   podman/docker can't see that
+ * --rnd-admin-password creates an admin user with a random password (which
+   it prints for you). 
+
+This will exit quickly after creating the admin user.
+
+Next up remove --rnd-admin-password, and start the container again, and you
+are in business.
+
+# Building (optional)
+Requires libsqlite3-dev nlohmann-json. On Debian derived
+systems the following works:
+
+```
+apt install libsqlite3-dev nlohmann-json3-dev python3-pip pkg-config
+```
+In addition, the project requires a recent version of meson, which you can
+get with 'pip3 install meson ninja' or perhaps 'pip install
+meson ninja' and only if that doesn't work 'apt install meson'.
+
+> The meson in Debian bullseye is very old, and will give you a confusing
+> error message about 'git' if you try it. If you [enable
+> bullseye-backports](https://backports.debian.org/Instructions/) you can do
+> `apt install -t bullseye-backports meson` and get a working one. Or use
+> the pip version, which is also great.
+
+Then run:
+
+```
+meson setup build
+meson compile -C build
+```
 
 # Distributing binaries, docker etc
 To make a more portable binary, try:
@@ -203,30 +238,6 @@ This gets you a 2.0 megabyte compressed container you can distribute.
 
 To run the image, run this once:
 
-```bash
-podman run --init -p 1234:1234             \
-  -v /some/place/local-db/:/local-db       \
-  berthubert/trifecta                      \
-  -l 0.0.0.0 --rnd-admin-password
-```
-
-This syntax means:
-
- * --init means you can ^C the container if needed
- * The binary in the container exposes TCP port 1234, expose it to the world as
-   1234 as well
- * Containers are immutable, but we'd love to actually retain uploaded
-   images. We therefore mount `/some/place/local-db` on your file system to
-   `/local-db` in the container
- * For security reasons, trifecta binds to 127.0.0.1 by default, but
-   podman/docker can't see that
- * --rnd-admin-password creates an admin user with a random password (which
-   it prints for you). 
-
-This will exit quickly after creating the admin user.
-
-Next up remove --rnd-admin-password, and start the container again, and you
-are in business.
 
 # Simple Docker build
 
