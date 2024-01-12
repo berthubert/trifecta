@@ -72,13 +72,13 @@ int trifectaMain(int argc, const char**argv)
   argparse::ArgumentParser args("trifecta", GIT_VERSION);
 
   args.add_argument("--db-file").help("file to read database from").default_value(getEnvOr("TRIFECTA_DB", "trifecta.sqlite"));
-  args.add_argument("--html-dir").help("directory with our HTML files").default_value(getEnvOr("TRIFECTA_HTMLDIR", "./html/"));
+  args.add_argument("--html-dir").help("directory with our HTML files").default_value(getEnvOr("TRIFECTA_HTML_DIR", "./html/"));
   args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").default_value(string(""));
   args.add_argument("-p", "--port").help("port number to listen on").default_value(std::stoi(getEnvOr("TRIFECTA_PORT", "3456"))).scan<'i', int>();
   args.add_argument("--local-address", "-l").help("address to listen on").default_value(getEnvOr("TRIFECTA_LOCAL", "127.0.0.1"));
-  args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value(getEnvOr("TRIFECTA_SMTPSERVER", "127.0.0.1:25"));
-  args.add_argument("--smtp-from", "-f").help("Origin/from email address to use").default_value(getEnvOr("TRIFECTA_MAILFROM", "changeme@example.com"));
-  args.add_argument("--canonical-url", "-c").help("Canonical URL of service").default_value(getEnvOr("TRIFECTA_CANURL", ""));
+  args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value(getEnvOr("TRIFECTA_SMTP_SERVER", "127.0.0.1:25"));
+  args.add_argument("--smtp-from", "-f").help("Origin/from email address to use").default_value(getEnvOr("TRIFECTA_MAIL_FROM", "changeme@example.com"));
+  args.add_argument("--canonical-url", "-c").help("Canonical URL of service").default_value(getEnvOr("TRIFECTA_CAN_URL", ""));
 
   string canURL;
   try {

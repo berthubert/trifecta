@@ -2,18 +2,22 @@ services:
   trifecta:
     image: berthubert/trifecta
     init: true
-    volumes:
-      - type: bind
-        source: /home/ahu/git/2/trifecta/local-db/
-        target: /local-db/
+
+    ports: 
+      - "1234:1234"
+
     environment:
       - TRIFECTA_DB=/local-db/trifecta.sqlite
       - TRIFECTA_LOCAL=0.0.0.0
-      - TRIFECTA_SMTPSERVER=127.0.0.1:25
-      - TRIFECTA_MAILFROM=
-      - TRIFECTA_CANURL=
-    ports: 
-      - "1234:1234"
+      - TRIFECTA_SMTP_SERVER=127.0.0.1:25
+      - TRIFECTA_MAIL_FROM=
+      - TRIFECTA_URL=
+
+    volumes:
+      - type: bind
+        source: /home/ahu/git/2/trifecta/local-db/  # XXX EDIT ME
+        target: /local-db/
+
 
 #    command: --rnd-admin-password
     

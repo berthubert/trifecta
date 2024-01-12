@@ -101,12 +101,12 @@ The server configures the sqlite database automatically, there is no need to loa
 Configuration is read both from the command line and from the environment:
 
  * --db-file / TRIFECTA_DB: Path to the sqlite3 database file
- * --html-dir / TRIFECTA_HTMLDIR: Path to the HTML, CSS, SVG and Javascript files
+ * --html-dir / TRIFECTA_HTML\_DIR: Path to the HTML, CSS, SVG and Javascript files
  * --port / TRIFECTA_PORT: Numerical TCP port on which the webserver will listen
  * --local-address / TRIFECTA_LOCAL: IP(v6) address on which the webserver will listen
- * --smtp-server / TRIFECTA_SMTPSERVER: SMTP server IP:port that allows us to send email
- * --smtp-from / TRIFECTA_MAILFROM: FROM and From address for email to be sent
- * --canonical-url / TRIFECTA_CANURL: Canonical full URL of the service (for email use)
+ * --smtp-server / TRIFECTA\_SMTP\_SERVER: SMTP server IP:port that allows us to send email
+ * --smtp-from / TRIFECTA_MAIL\_FROM: FROM and From address for email to be sent
+ * --canonical-url / TRIFECTA\_CAN\_URL: Canonical full URL of the service (for email use)
  
 The command line overrides the environment variables.
 
