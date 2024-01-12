@@ -84,7 +84,29 @@ media and in messengers.
 More low hanging fruit can be found in the [GitHub issues
 list](https://github.com/berthubert/trifecta/issues).
 
-# Building
+# Concepts
+More about this can be found on the [Trifecta web page](https://berthub.eu/articles/trifecta/).
+
+The software consists of a server process, which provides an API for creating users, posts, images etc. It hosts all these in a single sqlite3 database. The server also hosts a few Javascript and HTML files that provide the frontend. To send out password reset/passwordless login emails, it connects to an SMTP server.
+
+To run the software, put it behind a real webserver that does TLS and certificate management for you. Instructions are in [the README](https://github.com/berthubert/trifecta/blob/main/README.md).
+
+The server configures the sqlite database automatically, there is no need to load a schema. Out of the box, the system is not operational as it has no admin user. If you run the server with `--rnd-admin-password` it will create an admin user with a randomly generated password for you. If you run it again like that it will only change the password.
+
+# Configuration
+Configuration is read both from the command line and from the environment:
+
+ * --db-file / TRIFECTA_DB: Path to the sqlite3 database file
+ * --html-dir / TRIFECTA_HTMLDIR: Path to the HTML, CSS, SVG and Javascript files
+ * --port / TRIFECTA_PORT: Numerical TCP port on which the webserver will listen
+ * --local-address / TRIFECTA_LOCAL: IP(v6) address on which the webserver will listen
+ * --smtp-server / TRIFECTA_SMTPSERVER: SMTP server IP:port that allows us to send email
+ * --smtp-from / TRIFECTA_MAILFROM: FROM and From address for email to be sent
+ * --canonical-url / TRIFECTA_CANURL: Canonical full URL of the service (for email use)
+ 
+The command line overrides the environment variables.
+
+# Building (optional)
 Requires libsqlite3-dev nlohmann-json. On Debian derived
 systems the following works:
 
