@@ -342,7 +342,7 @@ void SimpleWebSystem::standardFunctions()
       string sessionid = cr.sessions.createSessionForUser(user, agent, ip);
       cr.res.set_header("Set-Cookie",
                      "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
-      cout<<"Logged in user "<<cr.user<<endl;
+      cout<<"Logged in user '"<<user<<"'"<<endl;
       j["ok"]=1;
       j["message"]="welcome!";
 
