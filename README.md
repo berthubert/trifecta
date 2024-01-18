@@ -185,11 +185,10 @@ Note that if you run using the Docker-compose file, there is a 'command'
 statement there for --rnd-admin-password which you need to uncomment once.
 
 # Building (optional)
-Requires libsqlite3-dev nlohmann-json. On Debian derived
-systems the following works:
+Requires libsqlite3-dev. On Debian derived systems the following works:
 
 ```
-apt install libsqlite3-dev nlohmann-json3-dev python3-pip pkg-config
+apt install libsqlite3-dev python3-pip pkg-config
 ```
 In addition, the project requires a recent version of meson, which you can
 get with 'pip3 install meson ninja' or perhaps 'pip install
