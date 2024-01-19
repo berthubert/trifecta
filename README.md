@@ -86,6 +86,11 @@ good existing software is great:
  * Security is probably not quite yet where it should be
  * The code is still not quite yet "education clean"
 
+Security issues that have been addressed:
+
+ * 2024-01-19: Initialization/seeding of random generator was only 32 bits, leading to predictable session id's. Spotted by Josh Simmons. It turns out that the sample C++ code you see everywhere leads to only 32 bits of seed.
+ * 2024-01-19: Trifects allows you to upload .SVG files. It turns out that if a user visits a .SVG directly (so not through an &lt;img&gt; element), browsers will execute JavaScript embedded in the file. Spotted by Wander Nauta. Fixed with a Content-Security-Policy, consequences limited by making our cookie HttpOnly.
+
 More low hanging fruit can be found in the [GitHub issues list](https://github.com/berthubert/trifecta/issues).
 
 # Concepts
