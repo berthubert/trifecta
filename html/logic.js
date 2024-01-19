@@ -299,7 +299,7 @@ async function uploadFile(clipboardItem, f) {
                 }
             })
             .catch(error => {
-                ShowMessage(f, "Network error duing file upload.", error);
+                ShowMessage(f, "Network error during file upload.", error);
             });
     }
     else {
