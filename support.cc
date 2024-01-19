@@ -345,7 +345,7 @@ void SimpleWebSystem::standardFunctions()
       string ip=getIP(cr.req), agent= cr.req.get_header_value("User-Agent");
       string sessionid = cr.sessions.createSessionForUser(user, agent, ip);
       cr.res.set_header("Set-Cookie",
-                     "session="+sessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+                     "session="+sessionid+"; SameSite=Strict; Path=/; HttpOnly; Max-Age="+to_string(5*365*86400));
       cout<<"Logged in user '"<<user<<"'"<<endl;
       j["ok"]=1;
       j["message"]="welcome!";
@@ -388,7 +388,7 @@ void SimpleWebSystem::standardFunctions()
       // emailauthenticated session so it can reset your password, but no expiration
       string newsessionid = cr.sessions.createSessionForUser(user, "synth", getIP(cr.req), true);
       cr.res.set_header("Set-Cookie",
-                     "session="+newsessionid+"; SameSite=Strict; Path=/; Max-Age="+to_string(5*365*86400));
+                     "session="+newsessionid+"; SameSite=Strict; Path=/; HttpOnly; Max-Age="+to_string(5*365*86400));
       cr.lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
       cr.log({{"action", "join-session"}, {"sessionid", sessionid}});
       j["ok"]=1;
