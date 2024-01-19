@@ -61,12 +61,16 @@ unordered_map<string,string> getCookies(const std::string& cookiestr)
   return getGen(cookiestr, "; ");
 }
 
-int64_t getRandom63()
+int64_t getRandom64()
 { // thread issue?
-  static std::random_device rd;
-  static std::mt19937_64 generator(rd());
+  static std::random_device rd; // 32 bits!!
+  static std::mt19937_64 generator((((uint64_t)rd()) << 32) | rd());
+
   std::uniform_int_distribution<int64_t> dist(1, std::numeric_limits<int64_t>::max());
-  return dist(generator);
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+
+  return dist(generator) ^ ts.tv_nsec;
 }
 
 namespace {
@@ -184,7 +188,7 @@ void sendAsciiEmailAsync(const std::string& server, const std::string& from, con
   sc.writen("To: "+to+"\r\n");
   sc.writen("Subject: "+subject+"\r\n");
 
-  sc.writen(fmt::format("Message-Id: <{}@trifecta.hostname>\r\n", makeShortID(getRandom63())));
+  sc.writen(fmt::format("Message-Id: <{}@trifecta.hostname>\r\n", makeShortID(getRandom64())));
   
   //Date: Thu, 28 Dec 2023 14:31:37 +0100 (CET)
   sc.writen(fmt::format("Date: {:%a, %d %b %Y %H:%M:%S %z (%Z)}\r\n", fmt::localtime(time(0))));
@@ -302,7 +306,7 @@ string Sessions::getUser(const httplib::Request &req)  const
 
 string Sessions::createSessionForUser(const std::string& user, const std::string& agent, const std::string& ip, bool authenticated, std::optional<time_t> expire)
 {
-  string sessionid=makeShortID(getRandom63())+makeShortID(getRandom63());
+  string sessionid=makeShortID(getRandom64())+makeShortID(getRandom64());
   d_lsqw.addValue({{"id", sessionid}, {"user", user}, {"agent", agent}, {"ip", ip}, {"createTstamp", time(0)},
                    {"lastUseTstamp", 0}, {"expireTstamp", expire.value_or(0)},
                    {"authenticated", (int)authenticated}}, "sessions");

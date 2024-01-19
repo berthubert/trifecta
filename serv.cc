@@ -109,7 +109,7 @@ int trifectaMain(int argc, const char**argv)
   sws.standardFunctions();
   if(args.is_used("--rnd-admin-password")) {
     bool changed=false;
-    string pw = makeShortID(getRandom63());
+    string pw = makeShortID(getRandom64());
 
     testrunnerPw() = pw;     // for the testrunner
 
@@ -240,7 +240,7 @@ int trifectaMain(int argc, const char**argv)
     time_t tstamp = time(0);
     string postId = cr.req.get_file_value("postId").content;
     if(postId.empty()) {
-      postId = makeShortID(getRandom63());
+      postId = makeShortID(getRandom64());
       cr.lsqw.addValue({{"id", postId}, {"user", cr.user}, {"stamp", tstamp}, {"public", 1}, {"publicUntilTstamp", 0}, {"title", ""}}, "posts");
     }
     else if(!cr.users.userHasCap(cr.user, Capability::Admin)) {
@@ -257,7 +257,7 @@ int trifectaMain(int argc, const char**argv)
         continue;
       }
       vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
-      auto imgid=makeShortID(getRandom63());
+      auto imgid=makeShortID(getRandom64());
       cr.lsqw.addValue({{"id", imgid},
                      {"ip", getIP(cr.req)},
                      {"tstamp", tstamp},

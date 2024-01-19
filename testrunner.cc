@@ -4,7 +4,7 @@
 #include <string>
 #include <thread>
 #include <unistd.h> //unlink(), usleep()
-
+#include <unordered_map>
 #include "doctest.h"
 #include "httplib.h"
 #include "nlohmann/json.hpp"
@@ -36,6 +36,17 @@ TEST_CASE("base64url id") {
   CHECK(makeShortID( 4529558240454539472)== "0Hi8lzg53D4");
   CHECK(makeShortID(2984614381840956837) == "pf0mlfd6ayk");
   CHECK(makeShortID(1) == "AQAAAAAAAAA");
+}
+
+TEST_CASE("random test") {
+  std::unordered_map<uint64_t, int> c;
+  for(unsigned int n = 0 ; n < 500000;++n)
+    c[getRandom64()]++;
+
+  int dups=0;
+  for(auto&& [key, val] : c)
+    if(val>1) dups++;
+  CHECK(dups == 0);
 }
 
 
