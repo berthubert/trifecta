@@ -61,7 +61,7 @@ unordered_map<string,string> getCookies(const std::string& cookiestr)
   return getGen(cookiestr, "; ");
 }
 
-int64_t getRandom64()
+uint64_t getRandom64()
 {
   static std::random_device rd; // 32 bits at a time
   return ((uint64_t)rd() << 32) | rd();
@@ -120,7 +120,7 @@ namespace {
   }
 }
 
-string makeShortID(int64_t id)
+string makeShortID(uint64_t id)
 {
   string ret = to_base64url(std::string((char*)&id, sizeof(id)));
   ret.resize(ret.size()-1); // this base64url implementation pads, somehow

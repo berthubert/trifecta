@@ -49,8 +49,8 @@ struct LockedSqw
 
 int trifectaMain(int argc, const char* argv[]);
 std::unordered_map<std::string, std::string> getCookies(const std::string& cookiestr);
-int64_t getRandom64();
-std::string makeShortID(int64_t id);
+uint64_t getRandom64();
+std::string makeShortID(uint64_t id);
 std::string getSessionID(const httplib::Request &req);
 std::string& testrunnerPw();
 void sendAsciiEmailAsync(const std::string& server, const std::string& from, const std::string& to, const std::string& subject, const std::string& textBody);
