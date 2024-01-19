@@ -234,7 +234,7 @@ int trifectaMain(int argc, const char**argv)
 
     cr.log({{"action", "view"}, {"imageId", imgid}});
     // this is needed for SVG which can contain embedded JavaScript (yes)
-    cr.res.set_header("Content-Security-Policy", "script-src ;");
+    cr.res.set_header("Content-Security-Policy", "script-src 'none';");
     return make_pair(s, get<string>(results[0]["content_type"]));
   });
 
