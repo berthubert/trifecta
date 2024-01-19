@@ -62,15 +62,9 @@ unordered_map<string,string> getCookies(const std::string& cookiestr)
 }
 
 int64_t getRandom64()
-{ // thread issue?
-  static std::random_device rd; // 32 bits!!
-  static std::mt19937_64 generator((((uint64_t)rd()) << 32) | rd());
-
-  std::uniform_int_distribution<int64_t> dist(1, std::numeric_limits<int64_t>::max());
-  struct timespec ts;
-  clock_gettime(CLOCK_REALTIME, &ts);
-
-  return dist(generator) ^ ts.tv_nsec;
+{
+  static std::random_device rd; // 32 bits at a time
+  return ((uint64_t)rd() << 32) | rd();
 }
 
 namespace {
