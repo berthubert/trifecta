@@ -135,11 +135,14 @@ string getSessionID(const httplib::Request &req)
   return siter->second;
 }
 
-// XXXX should only trust X-Real-IP if traffic is from a known and trusted proxy
-std::string getIP(const httplib::Request& req) 
+std::string SimpleWebSystem::getIP(const httplib::Request& req) const
 {
-  if(req.has_header("X-Real-IP"))
-    return req.get_header_value("X-Real-IP");
+  if(d_tproxies.count(req.remote_addr) && req.has_header(d_realipheadername)) {
+    string hdr = req.get_header_value(d_realipheadername);
+    if(hdr.find("::ffff:")==0)
+      hdr = hdr.substr(7);
+    return hdr;
+  }
   return req.remote_addr;
 }
 
@@ -294,9 +297,9 @@ string Sessions::getUserForSession(const std::string& sessionid, const std::stri
   return "";
 }
 
-string Sessions::getUser(const httplib::Request &req)  const
+string Sessions::getUser(const httplib::Request &req, const std::string& ip)  const
 {
-  string ip=getIP(req), agent= req.get_header_value("User-Agent");
+  string agent= req.get_header_value("User-Agent");
   return getUserForSession(getSessionID(req), agent, ip);
 }
 
@@ -315,6 +318,15 @@ void Sessions::dropSession(const std::string& sessionid, std::optional<string> u
     d_lsqw.query("delete from sessions where id=?", {sessionid});
   else
     d_lsqw.query("delete from sessions where id=? and user=?", {sessionid, *user});
+}
+
+void SimpleWebSystem::setTrustedProxies(const std::vector<std::string>& ips, const std::string& realipheadername)
+{
+  d_realipheadername = realipheadername;
+  for(const auto& i : ips) {
+    ComboAddress ca(i);
+    d_tproxies.insert(ca.toString());
+  }
 }
 
 void SimpleWebSystem::standardFunctions()
@@ -338,7 +350,7 @@ void SimpleWebSystem::standardFunctions()
     string password = cr.req.get_file_value("password").content;
     nlohmann::json j{{"ok", 0}};
     if(cr.users.checkPassword(user, password)) {
-      string ip=getIP(cr.req), agent= cr.req.get_header_value("User-Agent");
+      string ip=cr.getIP(), agent= cr.req.get_header_value("User-Agent");
       string sessionid = cr.sessions.createSessionForUser(user, agent, ip);
       cr.res.set_header("Set-Cookie",
                      "session="+sessionid+"; SameSite=Strict; Path=/; HttpOnly; Max-Age="+to_string(5*365*86400));
@@ -382,7 +394,7 @@ void SimpleWebSystem::standardFunctions()
       // delete this temporary session
       cr.sessions.dropSession(sessionid, user);
       // emailauthenticated session so it can reset your password, but no expiration
-      string newsessionid = cr.sessions.createSessionForUser(user, "synth", getIP(cr.req), true);
+      string newsessionid = cr.sessions.createSessionForUser(user, "synth", cr.getIP(), true);
       cr.res.set_header("Set-Cookie",
                      "session="+newsessionid+"; SameSite=Strict; Path=/; HttpOnly; Max-Age="+to_string(5*365*86400));
       cr.lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});

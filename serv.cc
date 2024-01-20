@@ -79,6 +79,9 @@ int trifectaMain(int argc, const char**argv)
   args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value(getEnvOr("TRIFECTA_SMTP_SERVER", "127.0.0.1:25"));
   args.add_argument("--smtp-from", "-f").help("Origin/from email address to use").default_value(getEnvOr("TRIFECTA_MAIL_FROM", "changeme@example.com"));
   args.add_argument("--canonical-url", "-c").help("Canonical URL of service").default_value(getEnvOr("TRIFECTA_CAN_URL", ""));
+  args.add_argument("--real-ip-header", "-r").help("HTTP header containing the real IP of visitor").default_value(getEnvOr("TRIFECTA_REAL_IP_HEADER", "X-Real-IP"));
+  args.add_argument("--trusted-proxy","-t").default_value<std::vector<std::string>>({ getEnvOr("TRIFECTA_TRUSTED_PROXY", "127.0.0.1") })
+    .append().help("IP address of a trusted proxy");
 
   string canURL;
   try {
@@ -106,6 +109,7 @@ int trifectaMain(int argc, const char**argv)
   std::mutex sqwlock;
   LockedSqw lsqw{sqw, sqwlock};
   SimpleWebSystem sws(lsqw);
+  sws.setTrustedProxies(args.get<vector<string>>("trusted-proxy"), args.get<string>("real-ip-header"));
   sws.standardFunctions();
   if(args.is_used("--rnd-admin-password")) {
     bool changed=false;
@@ -162,7 +166,7 @@ int trifectaMain(int argc, const char**argv)
         return;
 
       string user;
-      try { user = sws.d_sessions.getUser(req); } catch(...){}
+      try { user = sws.d_sessions.getUser(req, sws.getIP(req)); } catch(...){}
 
       if(!shouldShow(sws.d_users, user, rows[0]))
         return;
@@ -233,7 +237,7 @@ int trifectaMain(int argc, const char**argv)
     cr.res.status = 200;
 
     cr.log({{"action", "view"}, {"imageId", imgid}});
-    // this is needed for SVG which can contain embedded JavaScript (yes)
+    // this is needed for SVG which can contain embedded JavaScript (yes) and iframes
     cr.res.set_header("Content-Security-Policy", "script-src 'none'; frame-src 'none';");
     return make_pair(s, get<string>(results[0]["content_type"]));
   });
@@ -261,7 +265,7 @@ int trifectaMain(int argc, const char**argv)
       vector<uint8_t> content(f.content.c_str(), f.content.c_str() + f.content.size());
       auto imgid=makeShortID(getRandom64());
       cr.lsqw.addValue({{"id", imgid},
-                     {"ip", getIP(cr.req)},
+                     {"ip", cr.getIP()},
                      {"tstamp", tstamp},
                      {"image", content},
                      {"content_type", f.content_type},
@@ -371,7 +375,7 @@ int trifectaMain(int argc, const char**argv)
     j["ok"]=1;
     if(!email.empty()) {
       // valid for 1 day
-      string session = cr.sessions.createSessionForUser(user, "Change password session", getIP(cr.req), true, time(0)+86400); // authenticated session
+      string session = cr.sessions.createSessionForUser(user, "Change password session", cr.getIP(), true, time(0)+86400); // authenticated session
       string dest=canURL;
       dest += "reset.html?session="+session;
       sendAsciiEmailAsync(args.get<string>("smtp-server"), args.get<string>("smtp-from"), email, "Trifecta sign-in link",
