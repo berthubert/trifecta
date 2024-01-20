@@ -14,7 +14,6 @@ std::string& testrunnerPw()
   return testrunnerpw;
 }
 
-
 void replaceSubstring(std::string &originalString, const std::string &searchString, const std::string &replaceString) {
   size_t pos = originalString.find(searchString);
   
@@ -32,7 +31,6 @@ string htmlEscape(const std::string& str)
     replaceSubstring(ret, from, to);
   return ret;
 }
-
 
 // turn "abcd=1234; defgh=6934" into a map
 static unordered_map<string,string> getGen(const std::string& cookiestr, const string& sep)
@@ -63,7 +61,7 @@ unordered_map<string,string> getCookies(const std::string& cookiestr)
 
 uint64_t getRandom64()
 {
-  static std::random_device rd; // 32 bits at a time
+  static std::random_device rd; // 32 bits at a time. At least on recent Linux and gcc this does not block
   return ((uint64_t)rd() << 32) | rd();
 }
 
@@ -72,7 +70,6 @@ namespace {
   constexpr std::string_view base64url_chars{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                                "abcdefghijklmnopqrstuvwxyz"
                                                "0123456789-_"};
-
 
   template<class OutputBuffer, class InputIterator>
   inline OutputBuffer encode_into(InputIterator begin, InputIterator end) {
