@@ -37,7 +37,7 @@ Available as docker/podman, rpm, deb and source.
    * Does not provide (moderation) infrastructure for uploads by the public
  * Be a template for other projects
 
-In ~1000 lines of C++ & Javascript, this gets you a safe and
+In ~1200 lines of C++ & Javascript, this gets you a safe and
 secure image sharing site that you could run yourself and hopefully forget about.
 
 > Note: the security goals have not yet been achieved, heavy development is
@@ -57,6 +57,9 @@ has mostly become.
 Trifecta is an attempt to create a useful and reliable piece of software
 that also showcases that it is still possible to write small programs with
 a much more limited attack surface.
+
+I wrote [much more about the why of it all in this post on modern software
+practices](https://berthub.eu/articles/posts/a-2024-plea-for-lean-software/).
 
 # Status & Thanks
 Development is still ongoing, but usable. 
@@ -129,7 +132,8 @@ these go away once you've uploaded your first image.
 
 To do admin things (like create new users), visit /#admin
 
-To take this into production using nginx (for letsencrypt, TLS etc), try:
+To take this into production using nginx (for robustness, letsencrypt, TLS
+etc), try:
 
 ```
 upstream backendtrifect {
@@ -157,6 +161,9 @@ location /trifecta/ {
 ```
 Do know that the default configuration of Trifecta will listen on 127.0.0.1
 only, use `-l 0.0.0.0` (or TRIFECTA_LOCAL=0.0.0.0) to change this.
+
+It should be obvious, but do not run Trifecta without a front-proxy that provides
+TLS (except for local testing).
 
 # Podman/Docker
 You can get the Docker image by pulling berthubert/trifecta from the Docker
