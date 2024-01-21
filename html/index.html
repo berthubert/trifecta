@@ -38,9 +38,9 @@
             <input type="text" id="user" name="user" required>
 
             <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button @click.prevent="doAskForSigninEmail($el.parentNode['user'].value, $data)">Get sign-in email</button>
+            <input type="password" id="password" name="password">
             <button type="submit">Login</button>
+            <button @click.prevent="doAskForSigninEmail($el.parentNode['user'].value, $data)" type="button">Get sign-in email</button>
           </form>
         </div>
       </template>
