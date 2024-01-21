@@ -91,6 +91,11 @@ good existing software is great:
 
 Security issues that have been addressed:
 
+ * 2024-01-21: Wander Nauta found out we could crash on logging an error
+   containing a malformed UTF-8 string
+ * 2024-01-21: Wander Nauta spotted that adding a linefeed to a content-type
+   would cause the webserver to not set a content-type, allowing you to host
+   random content without a content-type
  * 2024-01-19: Initialization/seeding of random generator was only 32 bits, leading to predictable session id's. Spotted by Josh Simmons. It turns out that the sample C++ code you see everywhere leads to only 32 bits of seed. Solar Designer subsequently pointed out (with proof) that the fix was not good enough, so it has been fixed again.
  * 2024-01-19: Trifecta allows you to upload .SVG files. It turns out that if a user visits a .SVG directly (so not through an &lt;img&gt; element), browsers will execute JavaScript embedded in the file. Spotted by Wander Nauta. Fixed with a Content-Security-Policy, consequences limited by making our cookie HttpOnly.
  * 2024-01-19: Wander Nauta found out that a hostile logged in user could get Trifecta to send email to arbitrary destinations, by injecting control characters in their email address. Trifecta is not designed for hostile users, but this still needed to be fixed.

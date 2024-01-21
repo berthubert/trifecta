@@ -540,8 +540,13 @@ SimpleWebSystem::SimpleWebSystem(LockedSqw& lsqw) : d_lsqw(lsqw), d_users(lsqw),
       reason = "An unknown error occurred";
     }
     cout<<req.path<<": exception for "<<reason<<endl;
-    nlohmann::json j{{"ok", 0}, {"message", reason}, {"reason", reason}};
-    res.set_content(j.dump(), "application/json");
+    string json="Failed to serialize error message";
+    try {
+      nlohmann::json j{{"ok", 0}, {"message", reason}, {"reason", reason}};
+      json = j.dump();
+    }catch(...) {}
+
+    res.set_content(json, "application/json");
     res.status = 200;
   });
 }
