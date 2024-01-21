@@ -116,6 +116,9 @@ Configuration is read both from the command line and from the environment:
  * --smtp-server / TRIFECTA\_SMTP\_SERVER: SMTP server IP:port that allows us to send email
  * --smtp-from / TRIFECTA_MAIL\_FROM: FROM and From address for email to be sent
  * --canonical-url / TRIFECTA\_CAN\_URL: Canonical full URL of the service (for email use)
+ * --real-ip-header / TRIFECTA\_REAL\_IP\_HEADER: HTTP header that contains the real IP address of client
+ * --trusted-proxy / TRIFECTA\_TRUSTED\_PROXY: IP address of a proxy we trust to provide real IP address
+
  
 The command line overrides the environment variables.
 
@@ -162,7 +165,7 @@ location /trifecta/ {
 Do know that the default configuration of Trifecta will listen on 127.0.0.1
 only, use `-l 0.0.0.0` (or TRIFECTA_LOCAL=0.0.0.0) to change this.
 
-It should be obvious, but do not run Trifecta without a front-proxy that provides
+It should be obvious, but **do not run Trifecta without a front-proxy** that provides
 TLS (except for local testing).
 
 # Podman/Docker
