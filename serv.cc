@@ -239,6 +239,8 @@ int trifectaMain(int argc, const char**argv)
     cr.log({{"action", "view"}, {"imageId", imgid}});
     // this is needed for SVG which can contain embedded JavaScript (yes) and iframes
     cr.res.set_header("Content-Security-Policy", "script-src 'none'; frame-src 'none';");
+    // this prevents browsers from loading scripts/stylesheets through us
+    cr.res.set_header("X-Content-Type-Options", "nosniff");
     return make_pair(s, get<string>(results[0]["content_type"]));
   });
 
@@ -258,7 +260,8 @@ int trifectaMain(int argc, const char**argv)
     nlohmann::json j; // if you upload multiple files in one go, this does the wrong thing
     for(auto&& [name, f] : cr.req.files) {
       fmt::print("upload name {}, filename {}, content_type {}, size {}, postid {}\n", f.name, f.filename, f.content_type, f.content.size(), postId);
-      if(f.content_type.substr(0,6) != "image/" || f.filename.empty()) {
+      if(f.content_type.substr(0,6) != "image/" || f.content_type.find_first_of(" \t\n\r") != string::npos
+         || f.filename.empty()) {
         cout<<"Skipping non-image or non-file (type " << f.content_type<<", filename '"<<f.filename<<"')"<<endl;
         continue;
       }
