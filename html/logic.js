@@ -59,7 +59,8 @@ async function getPost(f) {
     };
     let url = new URL(window.location.href)
     let p = url.searchParams.get("p");
-    if (p != null) {
+    const b64regex = new RegExp('^[-A-Za-z0-9_]+$');
+    if (p != null && b64regex.test(p)) {
         f.post.id = p;
         fetch(`getPost/${f.post.id}`).then(response => response.json()).then(data => {
             f.post.images = data.images;

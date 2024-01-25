@@ -11,7 +11,12 @@
     function parseURL(f)
     {
         let url = new URL(window.location.href)
+        const b64regex = new RegExp('^[-A-Za-z0-9-_]+$');
         f.session = url.searchParams.get("session");
+        if(!b64regex.test(f.session)) {
+            console.log("That wasn't a session id");
+            f.session="";
+        }
     }
 
     async function doSignin(f, resetpw)
