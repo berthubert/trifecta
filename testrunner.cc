@@ -521,6 +521,71 @@ TEST_CASE("web admin tests") {
   CHECK(found == true);
 }
 
+TEST_CASE("disable user test") {
+  httplib::Client cli("127.0.0.1", 9999);
+  
+  auto adminSession = getTFS().doLogin();
+  auto katySession = createAndLoginUser(cli, adminSession, "katy", "katy123");
+
+  httplib::MultipartFormDataItems items = {
+    { "file", "123 test content", "hello2.png", "image/png" }
+  };
+  auto res = cli.Post("/upload", katySession, items);
+  REQUIRE(res != 0);
+  nlohmann::json j = nlohmann::json::parse(res->body);
+  CHECK(j["postId"] != "");
+
+  cout<<j<<endl;
+  string id = j["id"];
+  string postid= j["postId"];
+
+  res = cli.Get("/i/"+id); // no cookie, should work
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  res = cli.Post("/change-user-disabled/katy/1", adminSession);
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
+
+  res = cli.Get("/i/"+id); // should no longer work
+  REQUIRE(res != 0); CHECK(res->body != items[0].content);
+
+  res = cli.Get("/i/"+id, katySession); // should no longer work
+  REQUIRE(res != 0); CHECK(res->body != items[0].content);
+  
+  res = cli.Get("/i/"+id, adminSession); // should still work
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  res = cli.Get("/getPost/"+postid, adminSession); // should still work
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
+
+  res = cli.Get("/getPost/"+postid); // anon
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
+
+  res = cli.Get("/getPost/"+postid, katySession); // katy
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 0);
+
+  auto stuff = [&]() {
+    getTFS().doLogin("katy", "katy123");
+  };
+  CHECK_THROWS_AS(stuff(), const std::exception&);
+
+  res = cli.Post("/change-user-disabled/katy/0", adminSession);
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
+
+  katySession = getTFS().doLogin("katy", "katy123");
+
+  res = cli.Get("/i/"+id, katySession); // retry
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  res = cli.Get("/i/"+id); // anon
+  REQUIRE(res != 0); CHECK(res->body == items[0].content);
+
+  res = cli.Get("/getPost/"+postid, katySession); // katy
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
+
+  res = cli.Get("/getPost/"+postid); // anon
+  REQUIRE(res != 0); CHECK(nlohmann::json::parse(res->body)["ok"] == 1);
+}
+
 TEST_CASE("change my password") {
   httplib::Client cli("127.0.0.1", 9999);
 

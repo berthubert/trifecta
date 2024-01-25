@@ -219,7 +219,7 @@ bool Users::userHasCap(const std::string& user, const Capability& cap, const htt
     auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0 and admin=1", {user});
     ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
   } else if(cap==Capability::EmailAuthenticated && req) {
-    auto c = d_lsqw.query("select count(1) as c from sessions where user=? and authenticated=1 and id=?", {user, getSessionID(*req)});
+    auto c = d_lsqw.query("select count(1) as c from sessions where user=? and disabled=0 and authenticated=1 and id=?", {user, getSessionID(*req)});
     ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
   }
   return ret;
@@ -242,6 +242,12 @@ bool Users::hasPassword(const std::string& user)
 {
   auto res = d_lsqw.query("select pwhash from users where user=?", {user});
   return res.size() == 1 && !get<string>(res[0]["pwhash"]).empty();
+}
+
+bool Users::isUserDisabled(const std::string& user)
+{
+  auto res = d_lsqw.query("select disabled from users where user=?", {user});
+  return res.size() == 0 || (get<int64_t>(res.at(0).at("disabled")) == 1);
 }
 
 bool Users::checkPassword(const std::string& user, const std::string& password) const
@@ -473,8 +479,8 @@ void SimpleWebSystem::standardFunctions()
     cr.lsqw.query("update users set disabled = ? where user=?", {disabled, user});
     if(disabled) {
       cr.lsqw.query("delete from sessions where user=?", {user}); // XX candidate for Sessions class
-    }
-    cr.log({{"action", "change-user-disabled"}, {"who", user}});
+    } // "to" is used in another log action as a string
+    cr.log({{"action", "change-user-disabled"}, {"who", user}, {"to", to_string(disabled)}});
     return nlohmann::json{{"ok", 1}};
   });
     

@@ -10,15 +10,6 @@
 #include "git_version.h"
 using namespace std;
 
-/*
-Todo:
-  if a user is disabled, do images/posts turn into 404s?
-  opengraph data for previews, how? iframe?
-
-  how do we deal with errors?  500? or a JSON thing?
-    plan: never do 500, always set an 'ok' field 
-*/
-
 void checkImageOwnership(LockedSqw& lsqw, Users& u, const std::string& user, const std::string& imgid)
 {
   if(!u.userHasCap(user, Capability::Admin)) {
@@ -57,6 +48,9 @@ bool shouldShow(Users& u, const std::string& user, unordered_map<string, MiniSQL
   if(!get<int64_t>(row["public"])) // not public, no show
     return false;
 
+  if(u.isUserDisabled(get<string>(row["user"])))
+    return false;
+  
   time_t pubUntil = get<int64_t>(row["publicUntilTstamp"]);
   return (!pubUntil || time(0) < pubUntil);
 }
@@ -150,6 +144,7 @@ int trifectaMain(int argc, const char**argv)
     fmt::print("WARNING: No admin users are defined, try --rnd-admin-password\n");
   }
 
+  // this is here to insert opengraph tags into the HTML, because crawlers won't execute javascript for us
   sws.d_svr.set_file_request_handler([&sws, &canURL](const httplib::Request& req, httplib::Response& res) {
     if(req.path=="/") {
       string searchString="<!-- opengraph -->";
@@ -194,7 +189,7 @@ int trifectaMain(int argc, const char**argv)
   sws.wrapGet({}, "/getPost/:postid", [](auto& cr) {
     string postid = cr.req.path_params.at("postid");
     nlohmann::json j;
-
+    j["ok"]=0;
     auto post = cr.lsqw.query("select user, public, title, publicUntilTstamp from posts where id=?", {postid});
     if(post.size() != 1) {
       j["images"] = nlohmann::json::array();
@@ -212,6 +207,7 @@ int trifectaMain(int argc, const char**argv)
       else
         j["can_touch_post"] = 0;
       j["publicUntilExpired"] = until && (time(0) < until);
+      j["ok"]=1;
     }
     return j;
   });

@@ -73,6 +73,7 @@ struct Users
   void delUser(const std::string& user);
   bool userHasCap(const std::string& user, const Capability& cap, const httplib::Request* req=0);
   bool hasPassword(const std::string& user);
+  bool isUserDisabled(const std::string& user); // user that doesn't exist is also disabled
   LockedSqw& d_lsqw;
 };
 
