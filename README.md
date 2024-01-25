@@ -91,6 +91,8 @@ good existing software is great:
 
 Security issues that have been addressed:
 
+ * 2024-01-23: Wander Nauta found that you could make the UI do weird things
+   by passing non-base64 session and post IDs to the website.
  * 2024-01-21: Wander Nauta found out we could crash on logging an error
    containing a malformed UTF-8 string
  * 2024-01-21: Wander Nauta spotted that adding a linefeed to a content-type
