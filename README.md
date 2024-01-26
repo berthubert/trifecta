@@ -64,15 +64,16 @@ practices](https://berthub.eu/articles/posts/a-2024-plea-for-lean-software/).
 # Status & Thanks
 Development is still ongoing, but usable. 
 
-Many thanks are also due to early users & contributors:
+Many thanks are also due to early users, testers and contributors:
 
  * Ruben d'Arco
  * Roel van der Made
  * Peter van Dijk
  * Bryan Seitz
+ * Wander Nauta
 
-While having 700 (indirect) dependencies is not good, benefiting from very
-good existing software is great:
+While having 700 (indirect) dependencies is not good, benefiting from [very
+good existing software is great](https://berthub.eu/articles/posts/trifecta-technology/):
 
  * [SQLiteWriter](https://github.com/berthubert/sqlitewrite/) for seamless
    bridge between SQL and JSON, with automated schema generation, [SQLite](https://sqlite.org/)
