@@ -128,7 +128,7 @@ string makeShortID(uint64_t id)
 string getSessionID(const httplib::Request &req) 
 {
   auto cookies = getCookies(req.get_header_value("Cookie"));
-  auto siter = cookies.find("session");
+  auto siter = cookies.find("trifecta_session");
   if(siter == cookies.end()) {
     throw std::runtime_error("No session cookie");
   }
@@ -326,6 +326,13 @@ void Sessions::dropSession(const std::string& sessionid, std::optional<string> u
     d_lsqw.query("delete from sessions where id=? and user=?", {sessionid, *user});
 }
 
+void SimpleWebSystem::setExtraCookieSpec(const std::string& spec)
+{
+  d_extraCookieSpec = spec;
+  if(!d_extraCookieSpec.empty() && *d_extraCookieSpec.rbegin()!=';')
+    d_extraCookieSpec.append(1, ';');
+}
+
 void SimpleWebSystem::setTrustedProxies(const std::vector<std::string>& ips, const std::string& realipheadername)
 {
   d_realipheadername = realipheadername;
@@ -359,7 +366,7 @@ void SimpleWebSystem::standardFunctions()
       string ip=cr.getIP(), agent= cr.req.get_header_value("User-Agent");
       string sessionid = cr.sessions.createSessionForUser(user, agent, ip);
       cr.res.set_header("Set-Cookie",
-                     "session="+sessionid+"; SameSite=Strict; Path=/; HttpOnly; Max-Age="+to_string(5*365*86400));
+                     "trifecta_session="+sessionid+"; SameSite=Strict; Path=/; HttpOnly; " + cr.sws.d_extraCookieSpec +" Max-Age="+to_string(5*365*86400));
       cout<<"Logged in user '"<<user<<"'"<<endl;
       j["ok"]=1;
       j["message"]="welcome!";
@@ -402,7 +409,7 @@ void SimpleWebSystem::standardFunctions()
       // emailauthenticated session so it can reset your password, but no expiration
       string newsessionid = cr.sessions.createSessionForUser(user, "synth", cr.getIP(), true);
       cr.res.set_header("Set-Cookie",
-                     "session="+newsessionid+"; SameSite=Strict; Path=/; HttpOnly; Max-Age="+to_string(5*365*86400));
+                     "trifecta_session="+newsessionid+"; SameSite=Strict; Path=/; HttpOnly; " + cr.sws.d_extraCookieSpec +"Max-Age="+to_string(5*365*86400));
       cr.lsqw.query("update users set lastLoginTstamp=? where user=?", {time(0), user});
       cr.log({{"action", "join-session"}, {"sessionid", sessionid}});
       j["ok"]=1;
@@ -441,7 +448,7 @@ void SimpleWebSystem::standardFunctions()
       fmt::print("Failed to drop session from the database, perhaps there was none\n");
     }
     cr.res.set_header("Set-Cookie",
-                      "session="+getSessionID(cr.req)+"; SameSite=Strict; Path=/; Max-Age=0");
+                      "trifecta_session="+getSessionID(cr.req)+"; SameSite=Strict; Path=/; Max-Age=0");
     return nlohmann::json{{"ok", 1}};
   });
 

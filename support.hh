@@ -102,6 +102,7 @@ struct SimpleWebSystem
   httplib::Server d_svr;
   std::unordered_set<std::string> d_tproxies;
   std::string d_realipheadername;
+  std::string d_extraCookieSpec;
   std::string getIP(const httplib::Request&) const;
   struct ComboReq
   {
@@ -125,7 +126,8 @@ struct SimpleWebSystem
       lsqw.addValue(values, "log");
     }
   };
-  
+
+  void setExtraCookieSpec(const std::string& spec);
   void setTrustedProxies(const std::vector<std::string>& ips, const std::string& realipheader);
   
   template<typename Func>

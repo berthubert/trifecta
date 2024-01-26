@@ -68,6 +68,7 @@ int trifectaMain(int argc, const char**argv)
   args.add_argument("--db-file").help("file to read database from").default_value(getEnvOr("TRIFECTA_DB", "trifecta.sqlite"));
   args.add_argument("--html-dir").help("directory with our HTML files").default_value(getEnvOr("TRIFECTA_HTML_DIR", "./html/"));
   args.add_argument("--rnd-admin-password").help("Create admin user if necessary, and set a random password").default_value(string(""));
+  args.add_argument("--insecure-cookie").help("Use an insecure cookie, for non-https operations").default_value(string(""));
   args.add_argument("-p", "--port").help("port number to listen on").default_value(std::stoi(getEnvOr("TRIFECTA_PORT", "3456"))).scan<'i', int>();
   args.add_argument("--local-address", "-l").help("address to listen on").default_value(getEnvOr("TRIFECTA_LOCAL", "127.0.0.1"));
   args.add_argument("--smtp-server", "-s").help("SMTP server to use").default_value(getEnvOr("TRIFECTA_SMTP_SERVER", "127.0.0.1:25"));
@@ -105,6 +106,10 @@ int trifectaMain(int argc, const char**argv)
   SimpleWebSystem sws(lsqw);
   sws.setTrustedProxies(args.get<vector<string>>("trusted-proxy"), args.get<string>("real-ip-header"));
   sws.standardFunctions();
+
+  if(!args.is_used("--insecure-cookie"))
+    sws.setExtraCookieSpec("Secure");
+
   if(args.is_used("--rnd-admin-password")) {
     bool changed=false;
     string pw = makeShortID(getRandom64());

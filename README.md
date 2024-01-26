@@ -129,6 +129,12 @@ Configuration is read both from the command line and from the environment:
  
 The command line overrides the environment variables.
 
+There is also a flag:
+
+ * --insecure-cookie: Normally Trifecta will issue 'Secure' cookies, which
+   won't work without TLS (except on localhost). Use this if you want to run
+   without TLS somehow.
+
 To get started:
 
 ```
