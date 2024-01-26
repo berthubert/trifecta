@@ -166,7 +166,6 @@ location /trifecta/ {
         add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "same-origin";
         add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:;" always;
 }
 ```
 Do know that the default configuration of Trifecta will listen on 127.0.0.1
