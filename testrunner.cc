@@ -100,7 +100,7 @@ namespace {
       string session = cookieline.substr(pos, pos2-pos);
       //      cout<<"session is '"<<session<<"'\n";
       httplib::Headers headers = {
-      { "Cookie", "session="+session }
+      { "Cookie", "trifecta_session="+session }
       };
 
       return headers;
