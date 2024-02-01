@@ -254,6 +254,8 @@ bool Users::isUserDisabled(const std::string& user)
 
 bool Users::checkPassword(const std::string& user, const std::string& password) const
 {
+  if(password.empty()) // due to a bug, some users may have an empty password
+    return false;
   auto res = d_lsqw.query("select pwhash, caps from users where user=? and disabled=0", {user});
   if(res.empty()) {
     return false;
@@ -263,7 +265,8 @@ bool Users::checkPassword(const std::string& user, const std::string& password) 
 
 void Users::createUser(const std::string& user, const std::string& password, const std::string& email, bool admin)
 {
-  string pwhash = bcrypt::generateHash(password);
+  // if you specify an empty password, you don't get a password
+  string pwhash = password.empty() ? "" : bcrypt::generateHash(password);
   d_lsqw.addValue({{"user", user}, {"pwhash", pwhash}, {"admin", (int)admin}, {"disabled", 0}, {"caps", ""}, {"lastLoginTstamp", 0}, {"email", email}}, "users");
 }
 

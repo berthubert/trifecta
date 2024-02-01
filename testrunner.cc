@@ -677,3 +677,23 @@ Nog een paragraaf!
 )");
 
 }
+
+TEST_CASE("user without password") {
+  httplib::Client cli("127.0.0.1", 9999);
+
+  auto adminSession = getTFS().doLogin();
+
+  // create user pieter
+  httplib::MultipartFormDataItems items2 = {
+    { "user", "pieter", "user" },
+    { "password1", "", "password1" }
+  };
+
+  auto res = cli.Post("/create-user", adminSession, items2);
+  REQUIRE(res != 0);
+
+  auto stuff = [&]() {
+    auto pietSession = getTFS().doLogin("pieter", "");
+  };
+  CHECK_THROWS_AS(stuff(), const std::exception&);
+}
