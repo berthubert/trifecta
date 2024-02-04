@@ -220,12 +220,13 @@ th {
 
 tr {
     background-color: var(--clr-table-row-bg);
-
 }
 
+/*
 tr:nth-of-type(even) {
     background-color: var(--clr-table-row-even-bg);
 }
+*/
 
 .thumb {
     max-width: 150px;
