@@ -158,15 +158,8 @@ function doAskForSigninEmail(user, f) {
 
 function doDeleteImage(f, imageid) {
     if (window.confirm("Do you really want to delete this image?")) {
-        fetch(`delete-image/${imageid}`, { method: "POST" })
-            .then(function (res) {
-                if (res.ok) {
-                    f.post.images = f.post.images.filter(function (item) {
-                        return item.id !== imageid;
-                    })
-                }
-                getMyImageList(f);
-            });
+        return fetch(`delete-image/${imageid}`, { method: "POST" })
+            .then(function (res) {});
     }
 }
 

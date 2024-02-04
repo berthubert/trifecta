@@ -237,6 +237,7 @@
                 <th>Size</th>
                 <th>Public</th>
                 <th>Thumbnail</th>
+                <th>Del</th>
               </tr>
               <template x-for="g in images">
                 <tr>
@@ -250,6 +251,9 @@
                       x-bind:checked="g.public" />
                   </td>
                   <td><a x-bind:href="'i/'+g.id"><img loading="lazy" class="thumb" x-bind:src="'i/'+g.id"></a></td>
+                  <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(getImageList($data))">
+                  </td>
+
                 </tr>
               </template>
             </table>
@@ -368,7 +372,7 @@
                     <td><input @click.prevent="doChangePublic($data, g.postId, $el).then(getMyImageList($data))" type="checkbox"
                                x-bind:checked="g.public" />
                     </td>
-                    <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id);">
+                    <td class="deleteicon" @click.prevent="doDeleteImage($data, g.id).then(getMyImageList($data))">
                     </td>
                   </tr>
                 </template>
