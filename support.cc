@@ -221,7 +221,7 @@ bool Users::userHasCap(const std::string& user, const Capability& cap, const htt
     auto c = d_lsqw.query("select count(1) as c from users where user=? and disabled=0 and admin=1", {user});
     ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
   } else if(cap==Capability::EmailAuthenticated && req) {
-    auto c = d_lsqw.query("select count(1) as c from sessions where user=? and disabled=0 and authenticated=1 and id=?", {user, getSessionID(*req)});
+    auto c = d_lsqw.query("select count(1) as c from sessions,users where users.user=? and users.user=sessions.user and disabled=0 and authenticated=1 and id=?", {user, getSessionID(*req)});
     ret = (c.size()==1 && get<int64_t>(c[0]["c"])==1);
   }
   return ret;
