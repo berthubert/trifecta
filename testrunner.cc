@@ -624,6 +624,7 @@ TEST_CASE("email address change test") {
   CHECK(j["email"]=="");
 
   httplib::MultipartFormDataItems items = {
+    { "password", "j0hnpw", "password"},
     { "email", "j0hn-243243@gmail.com", "email"}
   };
 
@@ -663,6 +664,30 @@ TEST_CASE("email address change test") {
   REQUIRE(res != 0);
   j = nlohmann::json::parse(res->body);
   CHECK(j["ok"]==0);
+
+  /* // can't test this without email fixture
+  res = cli.Post("/wipe-my-password", j0hnSession);
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==1);
+  */
+
+  res= cli.Post("/change-password", adminSession, {
+      {"user", "j0hn", "user"}, {"password", "", "password"}});
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==1);
+  
+  httplib::MultipartFormDataItems itemsnopw = {
+    { "email", "j0hn-243243@gmail.com", "email"}
+  };
+
+
+  res = cli.Post("/change-my-email", j0hnSession, itemsnopw);
+  REQUIRE(res != 0);
+  j = nlohmann::json::parse(res->body);
+  CHECK(j["ok"]==1);
+  
 }
 
 TEST_CASE("email test" * doctest::skip(true)) {

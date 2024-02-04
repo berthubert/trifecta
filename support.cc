@@ -426,6 +426,12 @@ void SimpleWebSystem::standardFunctions()
 
   wrapPost({Capability::IsUser}, "/change-my-email/?", [](auto& cr) {
     auto email = cr.req.get_file_value("email").content;
+
+    auto pwfield = cr.req.get_file_value("password");
+    if(cr.users.hasPassword(cr.user) && !cr.users.checkPassword(cr.user, pwfield.content)) {
+      throw std::runtime_error("Password not correct");
+    }
+    
     cr.users.setEmail(cr.user, email);
     cr.log({{"action", "change-my-email"}, {"to", email}});
     return nlohmann::json{{"ok", 1}, {"message", "Changed email"}};
@@ -498,8 +504,6 @@ void SimpleWebSystem::standardFunctions()
     
   wrapPost({Capability::Admin}, "/change-password/?", [](auto& cr) {
     auto pwfield = cr.req.get_file_value("password");
-    if(pwfield.content.empty())
-      throw std::runtime_error("Can't set an empty password");
       
     string user = cr.req.get_file_value("user").content;
     cout<<"Attemping to set password for user "<<user<<endl;
@@ -533,6 +537,7 @@ void SimpleWebSystem::standardFunctions()
     return nlohmann::json{{"ok", 1}};
   });
 
+  // hard to unit test this
   wrapPost({Capability::IsUser, Capability::EmailAuthenticated}, "/wipe-my-password/?", [](auto& cr) {
     cr.users.changePassword(cr.user, "");
     cr.log({{"action", "wipe-my-password"}});

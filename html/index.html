@@ -310,6 +310,16 @@
             <h2>Change my email</h2>
             <form @submit.prevent="doChangeMyEmail($el, $data)">
               <table>
+                <template x-if="user.hasPw">
+                  <tr>
+                    <td>
+                      <label for="password">Current Password:</label>
+                    </td>
+                    <td>
+                      <input type="password" id="password" name="password" required>
+                    </td>
+                  </tr>
+                </template>
                 <tr>
                   <td>
                     <label for="email">Email:</label>
